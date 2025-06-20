@@ -9,5 +9,12 @@
   ],
   "env": {
     "NEXT_PUBLIC_SOCKET_URL": "https://api.circlesfera.com"
-  }
+  },
+  "redirects": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://octagonal-wave-xvpczxhfuvdx78berxbpsw3n.herokudns.com/:path*",
+      "permanent": false
+    }
+  ]
 } 
