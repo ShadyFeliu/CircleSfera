@@ -301,8 +301,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             {onlineUsers} online
           </div>
 
-          {/* Indicador de calidad de conexión - movido a la esquina inferior derecha */}
-          <div className="absolute bottom-4 right-4 bg-black bg-opacity-50 text-white p-2 rounded connection-indicator z-10">
+          {/* Indicador de calidad de conexión - movido a la parte superior derecha */}
+          <div className="absolute top-12 right-4 bg-black bg-opacity-50 text-white p-2 rounded connection-indicator z-10">
             <div className="flex items-center space-x-1">
               <div className={`w-2 h-2 rounded-full ${connectionQuality === 'good' ? 'bg-green-500' : connectionQuality === 'fair' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
               <span className="text-xs">{connectionQuality === 'good' ? 'Buena' : connectionQuality === 'fair' ? 'Regular' : 'Mala'} conexión</span>
