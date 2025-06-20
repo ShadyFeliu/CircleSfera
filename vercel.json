@@ -10,11 +10,16 @@
   "env": {
     "NEXT_PUBLIC_SOCKET_URL": "https://api.circlesfera.com"
   },
-  "redirects": [
+  "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://octagonal-wave-xvpczxhfuvdx78berxbpsw3n.herokudns.com/:path*",
-      "permanent": false
+      "source": "/(.*)",
+      "destination": "https://octagonal-wave-xvpczxhfuvdx78berxbpsw3n.herokudns.com/$1",
+      "has": [
+        {
+          "type": "host",
+          "value": "api.circlesfera.com"
+        }
+      ]
     }
   ]
 } 
