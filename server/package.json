@@ -1,0 +1,21 @@
+{
+  "name": "circlesfera-signal",
+  "version": "1.0.0",
+  "description": "Servidor de señalización para CircleSfera",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.server.json",
+    "start": "node build/index.js",
+    "dev": "tsx server.ts"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "tsx": "^4.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
