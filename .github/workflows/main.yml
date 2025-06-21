@@ -38,13 +38,11 @@ jobs:
       env:
         NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
         
-    - name: Cache build
-      uses: actions/cache@v3
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
       with:
+        name: nextjs-build
         path: .next
-        key: ${{ runner.os }}-nextjs-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
-        restore-keys: |
-          ${{ runner.os }}-nextjs-
 
   deploy:
     needs: build-and-test
@@ -53,6 +51,12 @@ jobs:
     
     steps:
     - uses: actions/checkout@v3
+
+    - name: Download build artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: nextjs-build
+        path: .next
 
     - name: Deploy to Vercel
       uses: amondnet/vercel-action@v20
