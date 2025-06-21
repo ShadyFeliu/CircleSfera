@@ -38,6 +38,9 @@ jobs:
       env:
         NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
         
+    - name: Verify Build Output
+      run: ls -la
+
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
