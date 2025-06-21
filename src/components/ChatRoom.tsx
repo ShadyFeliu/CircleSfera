@@ -157,11 +157,17 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     if (peerRef.current) {
       peerRef.current.destroy();
     }
+    setMessages([]);
+    setConnectionStatus("connecting");
+    setConnectionError(null);
+    setReconnectAttempts(0);
+    
+    // NO crear una nueva conexión. Usar la existente.
     if (socketRef.current?.connected) {
-      setStatus("Buscando un nuevo compañero...");
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
       socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter });
     } else {
+      // Como fallback, si no hay socket, recargar.
       window.location.reload();
     }
   }, [interests, ageFilter]);
