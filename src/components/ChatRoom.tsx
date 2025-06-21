@@ -1,10 +1,12 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import io, { Socket } from "socket.io-client";
 import Peer from "simple-peer";
 import ScreenRecorder from "./ScreenRecorder";
 import { useUserStats } from "@/hooks/useUserStats";
+import Image from "next/image";
 
 type Message = {
   author: "me" | "partner";
@@ -104,7 +106,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || `http://${window.location.hostname}:3001`;
     const socket = io(socketUrl);
     socketRef.current = socket;
-    let myStream: MediaStream;
     
     // Setup socket event handlers
     socket.on('error', (error: { message: string; code?: string }) => {
@@ -143,6 +144,34 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       return () => clearTimeout(timer);
     }
   }, [connectionStatus, connectionError, reconnectAttempts]);
+
+  const handleNextChat = useCallback(() => {
+    if (peerRef.current) {
+      peerRef.current.destroy();
+    }
+    if (myStreamRef.current) {
+      myStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    setMessages([]);
+    setConnectionStatus("connecting");
+    setConnectionError(null);
+    setReconnectAttempts(0);
+    
+    // Reinicializar conexión
+    const socket = initializeConnection();
+    socketRef.current = socket;
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (peerRef.current && connectionStatus === "connected") {
+      const interval = setInterval(() => {
+        monitorConnectionQuality(peerRef.current!);
+      }, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [connectionStatus, addChatTime, addCountry, addInterest, incrementChats, handleNextChat]);
 
   useEffect(() => {
     // Initialize socket connection
@@ -323,11 +352,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         setStatus("No se pudo acceder a la cámara o micrófono.");
       });
 
-    const handleFindNewPartner = () => {
-      const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
-      socketRef.current?.emit("find_new_partner", { interests: interestsArray, ageFilter });
-    };
-
     return () => {
       myStream?.getTracks().forEach(track => track.stop());
       peerRef.current?.destroy();
@@ -335,118 +359,90 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     };
   }, [interests, ageFilter]);
   
-  // Connection quality monitoring function
   const monitorConnectionQuality = (peer: Peer.Instance) => {
-    let statsInterval: NodeJS.Timeout;
-    
-    peer.on('connect', () => {
-      statsInterval = setInterval(async () => {
-        if (peer.connected && (peer as any)._pc) {
-          try {
-            const stats = await (peer as any)._pc.getStats();
-            let totalPacketsLost = 0;
-            let totalPackets = 0;
-            let roundTripTime = 0;
-            
-            stats.forEach((report: any) => {
-              if (report.type === 'inbound-rtp') {
-                totalPacketsLost += report.packetsLost || 0;
-                totalPackets += report.packetsReceived || 0;
+    try {
+      // Access the underlying RTCPeerConnection
+      const pc = (peer as unknown as { _pc: RTCPeerConnection })._pc;
+      if (pc) {
+        pc.getStats().then((stats: RTCStatsReport) => {
+          stats.forEach((report: RTCStats) => {
+            if (report.type === 'candidate-pair') {
+              const candidatePair = report as RTCIceCandidatePairStats;
+              if (candidatePair.state === 'succeeded' && candidatePair.currentRoundTripTime) {
+                const rtt = candidatePair.currentRoundTripTime;
+                if (rtt < 0.1) {
+                  setConnectionQuality("good");
+                } else if (rtt < 0.3) {
+                  setConnectionQuality("fair");
+                } else {
+                  setConnectionQuality("poor");
+                }
               }
-              if (report.type === 'candidate-pair' && report.currentRoundTripTime) {
-                roundTripTime = report.currentRoundTripTime * 1000;
-              }
-            });
-            
-            const packetLossRate = totalPackets > 0 ? (totalPacketsLost / totalPackets) * 100 : 0;
-            
-            // Update connection quality based on metrics
-            if (packetLossRate > 10 || roundTripTime > 300) {
-              setConnectionQuality("poor");
-            } else if (packetLossRate > 5 || roundTripTime > 150) {
-              setConnectionQuality("fair");
-            } else {
-              setConnectionQuality("good");
             }
-          } catch (error) {
-            console.error('Error getting WebRTC stats:', error);
-          }
-        }
-      }, 5000);
-    });
-    
-    return () => {
-      if (statsInterval) clearInterval(statsInterval);
-    };
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error monitoring connection quality:', error);
+    }
   };
   
   // Handle WebRTC peer errors
   const handlePeerError = (error: Error) => {
-    console.error('WebRTC error:', error);
-    
-    let errorMessage = 'Error de conexión';
-    let reconnectable = true;
-
-    if (error.message.includes('ICE')) {
-      errorMessage = 'No se pudo establecer una conexión directa. Intentando reconectar...';
-    } else if (error.message.includes('getUserMedia')) {
-      errorMessage = 'No se pudo acceder a la cámara o micrófono';
-      reconnectable = false;
-    }
-
-    setConnectionError({
-      message: errorMessage,
-      reconnectable
+    console.error('Peer error:', error);
+    setConnectionError({ 
+      message: 'Error en la conexión de video. Intentando reconectar...', 
+      reconnectable: true 
     });
     setConnectionStatus("error");
   };
 
   const sendData = (data: DataType) => {
-    peerRef.current?.send(JSON.stringify(data));
-  }
+    if (peerRef.current && peerRef.current.connected) {
+      peerRef.current.send(JSON.stringify(data));
+    }
+  };
 
   const playNotificationSound = () => {
-    // Crear un audio context para reproducir un beep simple
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.1);
+    try {
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+      audio.volume = 0.3;
+      audio.play().catch(() => {
+        // Ignore audio play errors
+      });
+    } catch {
+      // Ignore audio errors
+    }
   };
 
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const messageText = messageInputRef.current?.value;
-    if (messageText) {
-      const message: Message = { 
-        author: "me", 
-        text: messageText,
+    const formData = new FormData(e.currentTarget);
+    const message = formData.get('message') as string;
+    
+    if (message.trim()) {
+      const newMessage: Message = {
+        author: "me",
+        text: message,
         timestamp: new Date(),
         type: "text"
       };
-      setMessages((prev) => [...prev, message]);
-      sendData({ type: "chat", text: messageText, messageType: "text" });
-      sendData({ type: "typing", value: false });
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      messageInputRef.current!.value = '';
+      
+      setMessages(prev => [...prev, newMessage]);
+      sendData({ type: "chat", text: message, messageType: "text" });
+      e.currentTarget.reset();
     }
   };
 
   const handleSendEmoji = (emoji: string) => {
-    const message: Message = { 
-      author: "me", 
+    const newMessage: Message = {
+      author: "me",
       text: emoji,
       timestamp: new Date(),
       type: "text"
     };
-    setMessages((prev) => [...prev, message]);
+    
+    setMessages(prev => [...prev, newMessage]);
     sendData({ type: "chat", text: emoji, messageType: "text" });
     setShowEmojiPicker(false);
   };
@@ -455,17 +451,18 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = (event: ProgressEvent<FileReader>) => {
         const imageUrl = event.target?.result as string;
-        const message: Message = { 
-          author: "me", 
-          text: "Imagen compartida",
+        const newMessage: Message = {
+          author: "me",
+          text: "Imagen enviada",
           timestamp: new Date(),
           type: "image",
           imageUrl
         };
-        setMessages((prev) => [...prev, message]);
-        sendData({ type: "chat", text: "Imagen compartida", messageType: "image", imageUrl });
+        
+        setMessages(prev => [...prev, newMessage]);
+        sendData({ type: "chat", text: "Imagen enviada", messageType: "image", imageUrl });
       };
       reader.readAsDataURL(file);
     }
@@ -479,14 +476,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     }, 2000);
   };
 
-  const handleNextChat = () => {
-    setStatus("Buscando un compañero...");
-    setConnectionStatus("waiting");
-    if(partnerVideo.current) { partnerVideo.current.srcObject = null; }
-    peerRef.current?.destroy();
-    socketRef.current?.emit("find_new_partner");
-  }
-  
   // Error message component
   const ConnectionErrorMessage = () => (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
@@ -644,15 +633,24 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         <h2 className="text-xl font-bold mb-4">Chat</h2>
         
         <div className="flex-grow overflow-y-auto mb-4 p-2 bg-gray-700 rounded-md custom-scrollbar">
-          {messages.map((msg, index) => (
-            <div key={index} className={`my-2 chat-message ${msg.author === 'me' ? 'text-right' : 'text-left'}`}>
-              <div className={`inline-block p-2 rounded-lg ${msg.author === 'me' ? 'bg-blue-600' : 'bg-gray-600'} max-w-xs`}>
-                {msg.type === 'image' && msg.imageUrl ? (
-                  <img src={msg.imageUrl} alt="Imagen compartida" className="max-w-full rounded" />
-                ) : (
-                  <span>{msg.text}</span>
+          {messages.map((message, index) => (
+            <div key={index} className={`mb-2 ${message.author === "me" ? "text-right" : "text-left"}`}>
+              <div className={`inline-block p-2 rounded-lg max-w-xs ${
+                message.author === "me" 
+                  ? "bg-blue-600 text-white" 
+                  : "bg-gray-600 text-white"
+              }`}>
+                {message.type === "image" && message.imageUrl && (
+                  <Image 
+                    src={message.imageUrl} 
+                    alt="Imagen compartida" 
+                    width={200} 
+                    height={150}
+                    className="rounded mb-1"
+                  />
                 )}
-                <div className="text-xs opacity-70 mt-1">{formatTime(msg.timestamp)}</div>
+                <p className="text-sm">{message.text}</p>
+                <p className="text-xs opacity-70 mt-1">{formatTime(message.timestamp)}</p>
               </div>
             </div>
           ))}
