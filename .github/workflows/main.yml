@@ -1,4 +1,4 @@
-name: CircleSfera CI/CD
+name: CircleSfera Frontend CI/CD
 
 on:
   push:
@@ -36,14 +36,8 @@ jobs:
     - name: Build
       run: npm run build
       env:
-        NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
+        NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
         
-    - name: Verify Build Output
-      run: ls -la
-
-    - name: Verify .next contents
-      run: ls -lR .next
-
     - name: Create build artifact archive
       run: tar -czf nextjs-build.tar.gz .next
 
