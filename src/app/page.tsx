@@ -18,7 +18,7 @@ export default function Home() {
   const [ageFilter, setAgeFilter] = useState("all");
 
   useEffect(() => {
-    // Cargar intereses favoritos desde localStorage
+    // Cargar intereses favoritos desde localStorage - Frontend actualizado
     const savedFavorites = localStorage.getItem('circleSfera_favorites');
     if (savedFavorites) {
       setFavoriteInterests(JSON.parse(savedFavorites));
