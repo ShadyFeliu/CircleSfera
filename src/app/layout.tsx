@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -9,11 +9,15 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "CircleSfera - Chat de Video Aleatorio",
   description: "Chatea con gente de todo el mundo en CircleSfera",
-  themeColor: "#1a1a1a",
   keywords: "chat, video chat, random chat, anonymous chat",
   authors: [{ name: "CircleSfera Team" }],
-  viewport: "width=device-width, initial-scale=1.0",
   robots: "index, follow",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1a1a1a",
+  width: "device-width",
+  initialScale: 1.0,
 };
 
 export default function RootLayout({
