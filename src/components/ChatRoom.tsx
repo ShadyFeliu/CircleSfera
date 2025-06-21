@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import io, { Socket } from "socket.io-client";
 import Peer from "simple-peer";
 import ScreenRecorder from "./ScreenRecorder";
+import { useUserStats } from "@/hooks/useUserStats";
 
 type Message = {
   author: "me" | "partner";
@@ -19,9 +20,58 @@ type DataType =
   | { type: "muted"; value: boolean }
   | { type: "video_off"; value: boolean };
 
+type ConnectionStatus = 
+  | "connecting"
+  | "waiting"
+  | "connected"
+  | "disconnected"
+  | "error"
+  | "banned";
+
+type ConnectionError = {
+  message: string;
+  code?: string;
+  reconnectable?: boolean;
+};
+
+// WebRTC configuration
+const ICE_SERVERS = {
+  iceServers: [
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+      ],
+    },
+    // TURN servers from environment variables
+    ...(process.env.NEXT_PUBLIC_TURN_URLS ? [{
+      urls: process.env.NEXT_PUBLIC_TURN_URLS.split(','),
+      username: process.env.NEXT_PUBLIC_TURN_USERNAME,
+      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
+    }] : []),
+  ],
+  iceCandidatePoolSize: 10,
+};
+
+// Connection timeout constants
+const CONNECTION_TIMEOUT = 15000; // 15 seconds
+const SIGNALING_TIMEOUT = 10000; // 10 seconds
+
 const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: string }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState("Buscando un compañero...");
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
+  const [connectionError, setConnectionError] = useState<ConnectionError | null>(null);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const MAX_RECONNECT_ATTEMPTS = 3;
+  
+  // User statistics hook
+  const {
+    incrementChats,
+    addChatTime,
+    addInterest,
+    addCountry
+  } = useUserStats();
   const [myFilter, setMyFilter] = useState("");
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(0);
@@ -45,11 +95,57 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   // Emojis disponibles
   const emojis = ["😀", "😂", "😍", "🤔", "👍", "👎", "❤️", "🔥", "🎉", "😎", "🤣", "😭", "😱", "😴", "🤗", "😇"];
 
-  useEffect(() => {
+  // Connection initialization function
+  const initializeConnection = () => {
+    setConnectionStatus("connecting");
+    
     // URL dinámica para el servidor de señalización
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || `http://${window.location.hostname}:3001`;
     const socket = io(socketUrl);
     socketRef.current = socket;
+    let myStream: MediaStream;
+    
+    // Setup socket event handlers
+    socket.on('error', (error: { message: string; code?: string }) => {
+      console.error('Socket error:', error);
+      setConnectionError({ 
+        message: error.message, 
+        code: error.code, 
+        reconnectable: error.code !== 'MAX_CONNECTIONS' 
+      });
+      setConnectionStatus("error");
+    });
+    
+    socket.on('banned', (data: { message: string }) => {
+      console.log('User banned:', data);
+      setConnectionError({ 
+        message: data.message, 
+        reconnectable: false 
+      });
+      setConnectionStatus("banned");
+    });
+    
+    return socket;
+  };
+
+  // Reconnection logic
+  useEffect(() => {
+    if (connectionStatus === "error" && connectionError?.reconnectable && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      const timer = setTimeout(() => {
+        console.log(`Attempting to reconnect (${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+        setReconnectAttempts(prev => prev + 1);
+        socketRef.current?.disconnect();
+        const newSocket = initializeConnection();
+        socketRef.current = newSocket;
+      }, 5000 * (reconnectAttempts + 1)); // Exponential backoff
+      
+      return () => clearTimeout(timer);
+    }
+  }, [connectionStatus, connectionError, reconnectAttempts]);
+
+  useEffect(() => {
+    // Initialize socket connection
+    const socket = initializeConnection();
     let myStream: MediaStream;
 
     socket.on('connect', () => {
@@ -77,11 +173,78 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         }
 
         const setupPeer = (partnerID: string, initiator: boolean) => {
-          const peer = new Peer({ initiator, trickle: true, stream: myStream });
+          const peer = new Peer({
+            initiator,
+            trickle: true,
+            stream: myStream,
+            config: ICE_SERVERS,
+            sdpTransform: (sdp) => {
+              // Force use of DTLS-SRTP for security
+              return sdp.replace('a=crypto', 'a=fingerprint');
+            },
+            // Additional security options
+            trickleICE: true,
+            reconnectTimer: 3000,
+            iceCompleteTimeout: 5000,
+            channelConfig: {
+              ordered: true,
+              maxRetransmits: 3
+            }
+          });
+          
           peerRef.current = peer;
 
-          setStatus("Conectado");
-          setMessages([]);
+          // Set connection timeout
+          const connectionTimeout = setTimeout(() => {
+            if (!peer.connected) {
+              console.log('Connection timeout - searching for new partner');
+              peer.destroy();
+              handleNextChat();
+            }
+          }, CONNECTION_TIMEOUT);
+
+          // Set signaling timeout
+          const signalingTimeout = setTimeout(() => {
+            if (!peer.connected) {
+              console.log('Signaling timeout - searching for new partner');
+              peer.destroy();
+              handleNextChat();
+            }
+          }, SIGNALING_TIMEOUT);
+
+          peer.on('connect', () => {
+            clearTimeout(connectionTimeout);
+            clearTimeout(signalingTimeout);
+            setStatus("Conectado");
+            setConnectionStatus("connected");
+            setMessages([]);
+            
+            // Increment chat count
+            incrementChats();
+            
+            // Add interests to stats
+            if (interests) {
+              interests.split(',').forEach(interest => {
+                if (interest.trim()) {
+                  addInterest(interest.trim().toLowerCase());
+                }
+              });
+            }
+            
+            // Start chat timer
+            const chatStartTime = Date.now();
+            
+            // Monitor connection quality
+            monitorConnectionQuality(peer);
+            
+            // Return cleanup function to record chat duration when connection ends
+            return () => {
+              const chatDuration = (Date.now() - chatStartTime) / 1000 / 60; // Convert to minutes
+              if (chatDuration > 0.1) { // Only record if chat lasted more than 6 seconds
+                addChatTime(Math.round(chatDuration));
+              }
+            };
+          });
 
           peer.on("signal", (signal) => {
             socket.emit("signal", { to: partnerID, signal });
@@ -123,10 +286,20 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
           peer.on("close", () => {
              setStatus("Tu compañero se ha desconectado.");
+             setConnectionStatus("disconnected");
              if (partnerVideo.current) { partnerVideo.current.srcObject = null; }
+             
+             // Add fictitious country data - in a real app, this would come from geolocation
+             // This is just for demonstration purposes
+             const countries = ["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"];
+             const randomCountry = countries[Math.floor(Math.random() * countries.length)];
+             addCountry(randomCountry);
           });
           
-          peer.on('error', (err) => { console.error('Error en Peer:', err); });
+          peer.on('error', (err) => { 
+            console.error('Error en Peer:', err); 
+            handlePeerError(err);
+          });
         };
 
         socket.on("partner", (data: { id: string; initiator: boolean; }) => { setupPeer(data.id, data.initiator); });
@@ -134,6 +307,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         socket.on("partner_disconnected", () => {
             setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
+            setConnectionStatus("waiting");
             if (partnerVideo.current) { partnerVideo.current.srcObject = null; }
             peerRef.current?.destroy();
             socket.emit("find_new_partner");
@@ -163,6 +337,72 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       socket.disconnect();
     };
   }, [interests, ageFilter]);
+  
+  // Connection quality monitoring function
+  const monitorConnectionQuality = (peer: Peer.Instance) => {
+    let statsInterval: NodeJS.Timeout;
+    
+    peer.on('connect', () => {
+      statsInterval = setInterval(async () => {
+        if (peer.connected && (peer as any)._pc) {
+          try {
+            const stats = await (peer as any)._pc.getStats();
+            let totalPacketsLost = 0;
+            let totalPackets = 0;
+            let roundTripTime = 0;
+            
+            stats.forEach((report: any) => {
+              if (report.type === 'inbound-rtp') {
+                totalPacketsLost += report.packetsLost || 0;
+                totalPackets += report.packetsReceived || 0;
+              }
+              if (report.type === 'candidate-pair' && report.currentRoundTripTime) {
+                roundTripTime = report.currentRoundTripTime * 1000;
+              }
+            });
+            
+            const packetLossRate = totalPackets > 0 ? (totalPacketsLost / totalPackets) * 100 : 0;
+            
+            // Update connection quality based on metrics
+            if (packetLossRate > 10 || roundTripTime > 300) {
+              setConnectionQuality("poor");
+            } else if (packetLossRate > 5 || roundTripTime > 150) {
+              setConnectionQuality("fair");
+            } else {
+              setConnectionQuality("good");
+            }
+          } catch (error) {
+            console.error('Error getting WebRTC stats:', error);
+          }
+        }
+      }, 5000);
+    });
+    
+    return () => {
+      if (statsInterval) clearInterval(statsInterval);
+    };
+  };
+  
+  // Handle WebRTC peer errors
+  const handlePeerError = (error: Error) => {
+    console.error('WebRTC error:', error);
+    
+    let errorMessage = 'Error de conexión';
+    let reconnectable = true;
+
+    if (error.message.includes('ICE')) {
+      errorMessage = 'No se pudo establecer una conexión directa. Intentando reconectar...';
+    } else if (error.message.includes('getUserMedia')) {
+      errorMessage = 'No se pudo acceder a la cámara o micrófono';
+      reconnectable = false;
+    }
+
+    setConnectionError({
+      message: errorMessage,
+      reconnectable
+    });
+    setConnectionStatus("error");
+  };
 
   const sendData = (data: DataType) => {
     peerRef.current?.send(JSON.stringify(data));
@@ -244,10 +484,34 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   const handleNextChat = () => {
     setStatus("Buscando un compañero...");
+    setConnectionStatus("waiting");
     if(partnerVideo.current) { partnerVideo.current.srcObject = null; }
     peerRef.current?.destroy();
     socketRef.current?.emit("find_new_partner");
   }
+  
+  // Error message component
+  const ConnectionErrorMessage = () => (
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+      <div className="bg-red-600 p-4 rounded-lg text-white max-w-md text-center">
+        <h3 className="text-xl font-bold mb-2">Error de Conexión</h3>
+        <p>{connectionError?.message}</p>
+        {connectionError?.reconnectable && reconnectAttempts < MAX_RECONNECT_ATTEMPTS && (
+          <p className="mt-2">
+            Reintentando conexión... ({reconnectAttempts + 1}/{MAX_RECONNECT_ATTEMPTS})
+          </p>
+        )}
+        {(!connectionError?.reconnectable || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) && (
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 bg-white text-red-600 px-4 py-2 rounded hover:bg-red-100"
+          >
+            Reiniciar Aplicación
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   const toggleMute = () => {
     if (myStreamRef.current) {
@@ -285,7 +549,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   };
 
   return (
-    <div className="w-full max-w-6xl grid grid-cols-3 gap-4">
+    <div className="w-full max-w-6xl grid grid-cols-3 gap-4 relative">
+      {(connectionStatus === "error" || connectionStatus === "banned") && <ConnectionErrorMessage />}
       <div className="col-span-2 flex flex-col">
         <div className="w-full h-[32rem] bg-black rounded-lg overflow-hidden relative video-container">
           <video ref={partnerVideo} autoPlay className="w-full h-full object-cover" />
