@@ -1,201 +1,210 @@
-# CircleSfera 🌍
+# CircleSfera - Chat de Video Aleatorio
 
-Una aplicación de videochat en tiempo real inspirada en Omegle y ChatRoulette, construida con Next.js, TypeScript y WebRTC.
+CircleSfera es una plataforma de chat por video que permite a los usuarios conectarse aleatoriamente con personas de todo el mundo basándose en intereses comunes.
 
-## ✨ Características Principales
+## 🚀 Características
 
-### 🎥 Videochat en Tiempo Real
-- **Conexión P2P**: Comunicación directa entre usuarios usando WebRTC
-- **Calidad Adaptativa**: Indicador de calidad de conexión en tiempo real
-- **Controles de Audio/Video**: Silenciar micrófono y activar/desactivar cámara
-- **Filtros de Video**: Efectos visuales (B&N, Sepia, Invertir)
+- 💬 Chat de video en tiempo real con WebRTC
+- 🎯 Emparejamiento basado en intereses
+- 🔒 Filtrado por edad para mayor seguridad
+- 📱 Diseño responsive
+- 🎨 Filtros de video en tiempo real
+- 📷 Compartir imágenes
+- 🎥 Grabación de pantalla
+- 🌍 Estadísticas de uso
+- 📊 Monitoreo de rendimiento
+- 🛡️ Sistema de reportes y moderación
 
-### 💬 Chat Avanzado
-- **Mensajes de Texto**: Chat en tiempo real con indicador de "escribiendo"
-- **Emojis**: Selector de emojis integrado
-- **Compartir Imágenes**: Envío de imágenes en el chat
-- **Timestamps**: Hora exacta de cada mensaje
-- **Notificaciones de Sonido**: Alertas cuando llegan mensajes
+## 🛠️ Tecnologías
 
-### 🤝 Emparejamiento Inteligente
-- **Intereses**: Emparejamiento basado en intereses comunes
-- **Filtros de Edad**: Opciones de filtrado por rango de edad
-- **Colas Múltiples**: Sistema de colas separadas por intereses
-- **Botón "Siguiente"**: Cambiar de pareja instantáneamente
+- Next.js 14 con TypeScript
+- Tailwind CSS para estilos
+- Socket.IO para comunicación en tiempo real
+- Simple-Peer para conexiones WebRTC
+- WebRTC para streaming de audio/video
 
-### 📊 Estadísticas y Social
-- **Contador de Usuarios**: Número de usuarios online en tiempo real
-- **Estadísticas Personales**: Historial de chats, tiempo total, países visitados
-- **Intereses Favoritos**: Sistema de intereses más usados
-- **Compartir App**: Integración con Web Share API
-- **Feedback**: Enlace directo para comentarios
+## 📋 Requisitos Previos
 
-### 🛡️ Moderación y Seguridad
-- **Sistema de Reportes**: Reportar usuarios inapropiados
-- **Baneo Automático**: Suspensión temporal por múltiples reportes
-- **Filtros de Edad**: Control parental y seguridad
-- **Privacidad**: No se graban conversaciones
+- Node.js ≥ 18.0.0
+- npm o pnpm
+- WebCam y micrófono
 
-### 🎬 Funcionalidades Avanzadas
-- **Grabación de Pantalla**: Grabar tu pantalla durante el chat
-- **Indicadores Visuales**: Estado del compañero (silenciado, video off)
-- **Animaciones**: Interfaz fluida con transiciones suaves
-- **Responsive**: Diseño adaptativo para móviles y desktop
+## 🚀 Instalación
 
-## 🚀 Tecnologías Utilizadas
-
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
-- **Backend**: Node.js, Socket.IO
-- **WebRTC**: Simple-Peer para conexiones P2P
-- **Estado**: React Hooks, localStorage
-- **Animaciones**: CSS personalizado, Tailwind
-
-## 📦 Instalación
-
-1. **Clonar el repositorio**
+1. Clonar el repositorio:
    ```bash
-   git clone https://github.com/tu-usuario/CircleSfera.git
+   git clone https://github.com/ShadyFeliu/CircleSfera.git
    cd CircleSfera
    ```
 
-2. **Instalar dependencias**
+2. Instalar dependencias:
    ```bash
    npm install
+   # o
+   pnpm install
    ```
 
-3. **Configurar variables de entorno**
-   ```bash
-   # Crear .env.local si es necesario
-   echo "PORT=3001" > .env.local
+3. Crear archivo .env.local:
+   ```
+   NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
+   NEXT_PUBLIC_ANALYTICS_ID=
+   NEXT_PUBLIC_ENABLE_SCREEN_RECORDING=true
+   NEXT_PUBLIC_ENABLE_FILE_SHARING=true
    ```
 
-4. **Ejecutar en desarrollo**
+4. Iniciar el servidor de desarrollo:
    ```bash
    npm run dev
+   # o
+   pnpm dev
    ```
 
-5. **Ejecutar servidor de señalización**
-   ```bash
-   npm run server
-   ```
+## 🔧 Configuración
 
-## 🎯 Uso
+### Servidor de Señalización
 
-### Para Usuarios
-1. **Acceder**: Abrir `http://localhost:3000`
-2. **Configurar**: Añadir intereses y filtro de edad
-3. **Conectar**: Hacer clic en "Buscar Chat"
-4. **Chatear**: Usar controles de audio/video y chat
-5. **Navegar**: Usar "Siguiente" para cambiar de pareja
+El backend debe estar corriendo para que funcione la aplicación. Ver [CircleSfera-Backend](https://github.com/ShadyFeliu/CircleSfera-Backend) para instrucciones de configuración.
 
-### Funcionalidades Clave
-- **🔊 Silenciar/Desilenciar**: Control de audio
-- **📷 Video On/Off**: Control de cámara
-- **😀 Emojis**: Expresar emociones
-- **📷 Compartir Imágenes**: Enviar fotos
-- **🎥 Grabar Pantalla**: Capturar pantalla
-- **📊 Estadísticas**: Ver tu actividad
-- **🛡️ Reportar**: Moderar contenido
+### Variables de Entorno
 
-## 🔧 Configuración Avanzada
+- `NEXT_PUBLIC_SOCKET_URL`: URL del servidor de señalización
+- `NEXT_PUBLIC_ANALYTICS_ID`: ID para análisis (opcional)
+- `NEXT_PUBLIC_ENABLE_SCREEN_RECORDING`: Habilitar grabación de pantalla
+- `NEXT_PUBLIC_ENABLE_FILE_SHARING`: Habilitar compartir archivos
 
-### Servidor de Producción
-```bash
-# Construir para producción
-npm run build
+## 📦 Estructura del Proyecto
 
-# Ejecutar servidor de producción
-npm start
+```
+src/
+├── app/               # Rutas y layouts de Next.js
+├── components/        # Componentes React
+├── hooks/            # Custom hooks
+├── utils/            # Utilidades
+└── styles/           # Estilos globales
 ```
 
-### Configuración de Red
-Para acceso desde otros dispositivos en la red local:
-```bash
-# Ejecutar Next.js con host 0.0.0.0
-npm run dev -- -H 0.0.0.0
-```
+## 🔒 Seguridad
 
-### Configuración de CORS
-Actualizar `server.ts` con tu IP local:
-```typescript
-cors: {
-  origin: ["http://localhost:3000", "http://TU_IP:3000"],
-  methods: ["GET", "POST"]
-}
-```
+- Filtrado de edad para proteger a menores
+- Sistema de reportes para contenido inapropiado
+- Encriptación de extremo a extremo para video/audio
+- Rate limiting y protección contra abusos
+- Headers de seguridad configurados
 
-## 📱 Compatibilidad
+## 📈 Monitoreo
 
-### Navegadores Soportados
-- ✅ Chrome 80+
-- ✅ Firefox 75+
-- ✅ Safari 13+
-- ✅ Edge 80+
-
-### Dispositivos
-- ✅ Desktop (Windows, macOS, Linux)
-- ✅ Móviles (iOS Safari, Chrome Mobile)
-- ✅ Tablets
-
-### Requisitos
-- 📹 Cámara web
-- 🎤 Micrófono
-- 🌐 Conexión a internet estable
-- 🔒 HTTPS (para producción)
-
-## 🛠️ Desarrollo
-
-### Estructura del Proyecto
-```
-CircleSfera/
-├── src/
-│   ├── app/
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   └── components/
-│       ├── ChatRoom.tsx
-│       ├── Stats.tsx
-│       ├── ScreenRecorder.tsx
-│       └── Notification.tsx
-├── server.ts
-├── package.json
-└── README.md
-```
-
-### Scripts Disponibles
-- `npm run dev`: Desarrollo frontend
-- `npm run server`: Servidor de señalización
-- `npm run dev:full`: Ambos servidores
-- `npm run build`: Construcción para producción
-- `npm start`: Servidor de producción
+La aplicación incluye:
+- Métricas de rendimiento
+- Estadísticas de uso
+- Monitoreo de calidad de conexión WebRTC
+- Logs de errores y eventos
 
 ## 🤝 Contribuir
 
 1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+2. Crear una rama (`git checkout -b feature/AmazingFeature`)
+3. Commit los cambios (`git commit -m 'Add: AmazingFeature'`)
 4. Push a la rama (`git push origin feature/AmazingFeature`)
 5. Abrir un Pull Request
 
-## 📄 Licencia
+## 📝 Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
 
+## 👥 Autores
+
+- **ShadyFeliu** - *Trabajo inicial*
+
 ## 🙏 Agradecimientos
 
-- [Simple-Peer](https://github.com/feross/simple-peer) - Biblioteca WebRTC
-- [Socket.IO](https://socket.io/) - Comunicación en tiempo real
-- [Tailwind CSS](https://tailwindcss.com/) - Framework CSS
-- [Next.js](https://nextjs.org/) - Framework React
+- Simple-Peer por la biblioteca WebRTC
+- Socket.IO por la comunicación en tiempo real
+- Tailwind CSS por el sistema de estilos
 
-## 📞 Soporte
+# CircleSfera Backend 🚀
 
-Si tienes problemas o preguntas:
-- 📧 Email: tu-email@ejemplo.com
-- 🐛 Issues: [GitHub Issues](https://github.com/tu-usuario/CircleSfera/issues)
-- 💬 Discord: [Servidor de la comunidad](https://discord.gg/tu-servidor)
+Servidor de señalización para la aplicación CircleSfera, construido con Node.js, TypeScript y Socket.IO.
 
----
+## 🎯 Características
 
-**¡Disfruta chateando con gente de todo el mundo en CircleSfera! 🌍✨**
+- **WebSocket en tiempo real** con Socket.IO
+- **Emparejamiento inteligente** por intereses
+- **Sistema de moderación** con reportes y baneos
+- **Filtros de edad** para mayor seguridad
+- **Contador de usuarios** online
+- **CORS configurado** para producción
+
+## 🚀 Despliegue
+
+### Heroku
+```bash
+# Crear app en Heroku
+heroku create circlesfera-api
+
+# Configurar dominio personalizado
+heroku domains:add api.circlesfera.com
+
+# Desplegar
+git push heroku main
+```
+
+### Variables de Entorno
+```bash
+PORT=3001  # Puerto del servidor
+```
+
+## 🛠️ Desarrollo Local
+
+```bash
+# Instalar dependencias
+npm install
+
+# Desarrollo
+npm run dev
+
+# Construir
+npm run build
+
+# Producción
+npm start
+```
+
+## 📡 Endpoints
+
+- **WebSocket**: `ws://localhost:3001`
+- **Health Check**: `GET /health`
+
+## 🔧 Configuración CORS
+
+El servidor está configurado para aceptar conexiones desde:
+- `https://circlesfera.com`
+- `https://www.circlesfera.com`
+- `https://circlesfera.vercel.app`
+- `http://localhost:3000` (desarrollo)
+
+## 📊 Funcionalidades
+
+### Emparejamiento
+- Colas múltiples por intereses
+- Filtros de edad
+- Emparejamiento inteligente
+
+### Moderación
+- Sistema de reportes
+- Baneo automático por múltiples reportes
+- Limpieza automática de usuarios desconectados
+
+### Estadísticas
+- Contador de usuarios online
+- Logs de conexiones/desconexiones
+
+## 🔗 Conexión con Frontend
+
+El frontend debe configurar la variable de entorno:
+```
+NEXT_PUBLIC_SOCKET_URL=https://api.circlesfera.com
+```
+
+## 📄 Licencia
+
+MIT
