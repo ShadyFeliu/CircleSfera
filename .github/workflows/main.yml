@@ -30,9 +30,11 @@ jobs:
       run: npx tsc --noEmit
       
     - name: Lint
-      run: |
-        npm run lint || true
+      run: npm run lint -- --format=html --output-file=lint-results.html
         
+    - name: Test
+      run: npm test -- --coverage
+      
     - name: Build
       run: npm run build
       env:
@@ -67,6 +69,6 @@ jobs:
       uses: amondnet/vercel-action@v20
       with:
         vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.ORG_ID}}
-        vercel-project-id: ${{ secrets.PROJECT_ID}}
-        vercel-args: '--prod --yes'
+        vercel-org-id: ${{ secrets.ORG_ID }}
+        vercel-project-id: ${{ secrets.PROJECT_ID }}
+        vercel-args: '--prod'
