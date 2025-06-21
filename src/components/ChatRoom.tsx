@@ -183,10 +183,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               // Force use of DTLS-SRTP for security
               return sdp.replace('a=crypto', 'a=fingerprint');
             },
-            // Additional security options
-            trickleICE: true,
-            reconnectTimer: 3000,
-            iceCompleteTimeout: 5000,
             channelConfig: {
               ordered: true,
               maxRetransmits: 3

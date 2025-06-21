@@ -4,6 +4,12 @@ export interface PerformanceMetric {
   timestamp: number;
 }
 
+// Definición mínima de LayoutShift para evitar error de tipado
+interface LayoutShift extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
+
 class PerformanceMonitor {
   private metrics: PerformanceMetric[] = [];
   private readonly MAX_METRICS = 1000;
@@ -17,7 +23,8 @@ class PerformanceMonitor {
       // FID monitoring
       new PerformanceObserver((entryList) => {
         for (const entry of entryList.getEntries()) {
-          this.recordMetric('FID', entry.processingStart - entry.startTime);
+          const eventEntry = entry as PerformanceEventTiming;
+          this.recordMetric('FID', eventEntry.processingStart - eventEntry.startTime);
         }
       }).observe({ entryTypes: ['first-input'] });
 
@@ -32,8 +39,9 @@ class PerformanceMonitor {
       new PerformanceObserver((entryList) => {
         let clsValue = 0;
         for (const entry of entryList.getEntries()) {
-          if (!entry.hadRecentInput) {
-            clsValue += entry.value;
+          const layoutShiftEntry = entry as LayoutShift;
+          if (!layoutShiftEntry.hadRecentInput) {
+            clsValue += layoutShiftEntry.value;
           }
         }
         this.recordMetric('CLS', clsValue);
