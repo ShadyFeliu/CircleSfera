@@ -103,10 +103,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     setConnectionStatus("connecting");
     
     // URL dinámica para el servidor de señalización
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 
-      (process.env.NODE_ENV === 'production' 
-        ? 'https://api.circlesfera.com' 
-        : `http://${window.location.hostname}:3001`);
+    const socketUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://api.circlesfera.com' 
+      : (process.env.NEXT_PUBLIC_SOCKET_URL || `http://${window.location.hostname}:3001`);
     
     // Debug: Log the URL being used
     console.log('🔗 Socket URL:', socketUrl);
