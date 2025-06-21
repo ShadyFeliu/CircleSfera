@@ -45,12 +45,28 @@ const ICE_SERVERS = {
         'stun:stun1.l.google.com:19302',
       ],
     },
-    // TURN servers from environment variables
-    ...(process.env.NEXT_PUBLIC_TURN_URLS ? [{
-      urls: process.env.NEXT_PUBLIC_TURN_URLS.split(','),
-      username: process.env.NEXT_PUBLIC_TURN_USERNAME,
-      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
-    }] : []),
+    // Usar servidores TURN de las variables de entorno si están disponibles
+    ...(process.env.NEXT_PUBLIC_TURN_URLS
+      ? [
+          {
+            urls: process.env.NEXT_PUBLIC_TURN_URLS.split(','),
+            username: process.env.NEXT_PUBLIC_TURN_USERNAME,
+            credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
+          },
+        ]
+      : // Como fallback, usar servidores gratuitos de OpenRelay para desarrollo
+        [
+          {
+            urls: [
+              'stun:relay.metered.ca:80',
+              'turn:relay.metered.ca:80',
+              'turn:relay.metered.ca:443',
+              'turns:relay.metered.ca:443?transport=tcp',
+            ],
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+          },
+        ]),
   ],
   iceCandidatePoolSize: 10,
 };
