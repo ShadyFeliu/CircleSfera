@@ -91,6 +91,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
   const myStreamRef = useRef<MediaStream>();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
 
   // Emojis disponibles
   const emojis = ["😀", "😂", "😍", "🤔", "👍", "👎", "❤️", "🔥", "🎉", "😎", "🤣", "😭", "😱", "😴", "🤗", "😇"];
@@ -426,7 +427,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const messageText = e.currentTarget.message.value;
+    const messageText = messageInputRef.current?.value;
     if (messageText) {
       const message: Message = { 
         author: "me", 
@@ -438,7 +439,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       sendData({ type: "chat", text: messageText, messageType: "text" });
       sendData({ type: "typing", value: false });
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      e.currentTarget.reset();
+      messageInputRef.current!.value = '';
     }
   };
 
@@ -609,6 +610,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           
           <button 
             onClick={toggleVideo} 
+            aria-label="Activar/desactivar video"
             className={`font-bold py-2 px-4 rounded-full text-sm transition-colors ${isVideoOff ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
           >
             {isVideoOff ? '📹' : '📷'}
@@ -681,6 +683,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           </button>
           <button 
             onClick={() => fileInputRef.current?.click()} 
+            aria-label="Enviar imagen"
             className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm transition-colors"
           >
             📷
@@ -711,6 +714,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         <form onSubmit={handleSendMessage}>
           <input 
+            ref={messageInputRef}
             name="message" 
             onKeyDown={handleTyping} 
             className="w-full p-2 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300" 
