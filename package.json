@@ -1,37 +1,38 @@
 {
-  "name": "circlesfera",
-  "version": "0.1.0",
-  "private": true,
+  "name": "circlesfera-backend",
+  "version": "1.0.0",
+  "description": "Servidor de señalización para CircleSfera",
+  "main": "build/index.js",
   "scripts": {
-    "dev": "concurrently \"npm:dev:next\" \"npm:dev:server\"",
-    "dev:next": "next dev -H 0.0.0.0",
-    "dev:server": "nodemon --exec tsx server.ts",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "build": "tsc -p tsconfig.server.json",
+    "start": "node build/index.js",
+    "dev": "tsx server.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": ["<rootDir>/jest.setup.js"],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    }
   },
   "dependencies": {
-    "concurrently": "^9.1.2",
-    "next": "14.2.3",
-    "react": "^18",
-    "react-dom": "^18",
-    "simple-peer": "^9.11.1",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io": "^4.7.2"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "@types/simple-peer": "^9.11.8",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.3",
-    "nodemon": "^3.1.10",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.20.3",
-    "typescript": "^5"
-  }
+    "typescript": "^5.3.3",
+    "tsx": "^4.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ShadyFeliu/CircleSfera-Backend.git"
+  },
+  "keywords": ["websocket", "signaling", "webrtc", "circlesfera"],
+  "author": "ShadyFeliu",
+  "license": "MIT"
 }
