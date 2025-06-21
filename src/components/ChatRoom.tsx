@@ -157,18 +157,14 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     if (peerRef.current) {
       peerRef.current.destroy();
     }
-    if (myStreamRef.current) {
-      myStreamRef.current.getTracks().forEach(track => track.stop());
+    if (socketRef.current?.connected) {
+      setStatus("Buscando un nuevo compañero...");
+      const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
+      socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter });
+    } else {
+      window.location.reload();
     }
-    setMessages([]);
-    setConnectionStatus("connecting");
-    setConnectionError(null);
-    setReconnectAttempts(0);
-    
-    // Reinicializar conexión
-    const socket = initializeConnection();
-    socketRef.current = socket;
-  }, []);
+  }, [interests, ageFilter]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -211,10 +207,14 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         }
 
         const setupPeer = (partnerID: string, initiator: boolean) => {
+          if (peerRef.current) {
+            peerRef.current.destroy();
+          }
+
           const peer = new Peer({
             initiator,
             trickle: true,
-            stream: myStream,
+            stream: stream,
             config: ICE_SERVERS,
             sdpTransform: (sdp) => {
               // Force use of DTLS-SRTP for security
@@ -324,7 +324,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
              if (partnerVideo.current) { partnerVideo.current.srcObject = null; }
              
              // Add fictitious country data - in a real app, this would come from geolocation
-             // This is just for demonstration purposes
              const countries = ["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"];
              const randomCountry = countries[Math.floor(Math.random() * countries.length)];
              addCountry(randomCountry);
@@ -341,10 +340,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         socket.on("partner_disconnected", () => {
             setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
-            setConnectionStatus("waiting");
-            if (partnerVideo.current) { partnerVideo.current.srcObject = null; }
-            peerRef.current?.destroy();
-            socket.emit("find_new_partner");
+            if(peerRef.current) peerRef.current.destroy();
+            const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
+            socketRef.current?.emit('find_partner', { interests: interestsArray, ageFilter });
         });
 
         socket.on("partner_muted", (muted: boolean) => {
@@ -365,7 +363,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       peerRef.current?.destroy();
       socket.disconnect();
     };
-  }, [interests, ageFilter]);
+  }, [interests, ageFilter, handleNextChat]);
   
   const monitorConnectionQuality = (peer: Peer.Instance) => {
     try {
