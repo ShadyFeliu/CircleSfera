@@ -104,7 +104,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     
     // URL dinámica para el servidor de señalización
     const socketUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://circlesfera-api-efca8500cdbc.herokuapp.com' 
+      ? 'https://api.circlesfera.com' 
       : (process.env.NEXT_PUBLIC_SOCKET_URL || `http://${window.location.hostname}:3001`);
     
     // Debug: Log the URL being used
