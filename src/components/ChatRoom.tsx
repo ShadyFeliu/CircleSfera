@@ -198,6 +198,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   useEffect(() => {
     const socket = initializeConnection();
     let myStream: MediaStream | undefined;
+    let isComponentMounted = true;
 
     // Conectar solo una vez
     if (!socketRef.current) {
@@ -207,12 +208,26 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     const onConnect = () => {
       console.log('Conectado al servidor! Buscando pareja con intereses:', interests);
       startNewChat();
+      // Solicitar contador inicial
       socket.emit('get_user_count');
     };
 
     const onUserCount = (count: number) => {
-      setOnlineUsers(count);
+      if (isComponentMounted) {
+        setOnlineUsers(count);
+        console.log('[Users] Contador actualizado:', count);
+      }
     };
+
+    // Función para actualizar contador periódicamente
+    const updateUserCount = () => {
+      if (socket.connected && isComponentMounted) {
+        socket.emit('get_user_count');
+      }
+    };
+
+    // Actualizar contador cada 10 segundos
+    const userCountInterval = setInterval(updateUserCount, 10000);
 
     socket.on('connect', onConnect);
     socket.on('user_count', onUserCount);
@@ -233,26 +248,41 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       if (peerRef.current) {
         peerRef.current.destroy();
       }
-      // No desconectar el socket aquí para reutilizarlo
+      clearInterval(userCountInterval);
       return;
     }
 
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(stream => {
+        if (!isComponentMounted) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
         myStream = stream;
         myStreamRef.current = stream;
-        if (myVideo.current) {
+        
+        // Asignar stream solo una vez al video
+        if (myVideo.current && !myVideo.current.srcObject) {
           myVideo.current.srcObject = stream;
         }
 
         const setupPeer = (partnerID: string, initiator: boolean) => {
+          // Limpiar peer anterior completamente
           if (peerRef.current) {
             peerRef.current.removeAllListeners && peerRef.current.removeAllListeners();
             peerRef.current.destroy();
             peerRef.current = undefined;
           }
+
+          // Limpiar video del compañero
+          if (partnerVideo.current) {
+            partnerVideo.current.srcObject = null;
+          }
+
           let connectionTimeout: NodeJS.Timeout | undefined;
           let signalingTimeout: NodeJS.Timeout | undefined;
+          
           const peer = new Peer({
             initiator,
             trickle: true,
@@ -263,49 +293,64 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               maxRetransmits: 3
             }
           });
+          
           peerRef.current = peer;
-          // Debug logs
           console.log('[WebRTC] Nuevo peer creado. Initiator:', initiator);
+          
           connectionTimeout = setTimeout(() => {
-            if (!peer.connected) {
+            if (!peer.connected && isComponentMounted) {
               console.warn('[WebRTC] Connection timeout. Destruyendo peer.');
               peer.destroy();
               handleNextChat();
             }
           }, CONNECTION_TIMEOUT);
+          
           signalingTimeout = setTimeout(() => {
-            if (!peer.connected) {
+            if (!peer.connected && isComponentMounted) {
               console.warn('[WebRTC] Signaling timeout. Destruyendo peer.');
               peer.destroy();
               handleNextChat();
             }
           }, SIGNALING_TIMEOUT);
+          
           peer.on('connect', () => {
+            if (!isComponentMounted) return;
+            
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             setStatus("Conectado");
             setConnectionStatus("connected");
             setMessages([]);
             incrementChats();
+            
             if (interests) {
               interests.split(',').forEach(interest => {
                 if (interest.trim()) addInterest(interest.trim().toLowerCase());
               });
             }
-            // Monitor calidad
+            
             monitorConnectionQuality(peer);
             console.log('[WebRTC] Peer conectado');
           });
+          
           peer.on('signal', (signal) => {
-            socketRef.current?.emit("signal", { to: partnerID, signal });
+            if (socketRef.current?.connected) {
+              socketRef.current.emit("signal", { to: partnerID, signal });
+            }
           });
+          
           peer.on('stream', (partnerStream) => {
+            if (!isComponentMounted) return;
+            
             if (partnerVideo.current) {
               partnerVideo.current.srcObject = partnerStream;
             }
             console.log('[WebRTC] Stream de compañero recibido');
           });
+          
           peer.on('data', (data) => {
+            if (!isComponentMounted) return;
+            
             try {
               const parsed: DataType = JSON.parse(data.toString());
               if (parsed.type === "chat") {
@@ -330,16 +375,24 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               console.error("Dato recibido no es JSON válido:", e);
             }
           });
+          
           peer.on('close', () => {
+            if (!isComponentMounted) return;
+            
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             setStatus("Tu compañero se ha desconectado.");
             setConnectionStatus("disconnected");
-            if (partnerVideo.current) partnerVideo.current.srcObject = null;
+            if (partnerVideo.current) {
+              partnerVideo.current.srcObject = null;
+            }
             addCountry(["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"][Math.floor(Math.random() * 6)]);
             console.log('[WebRTC] Peer cerrado');
           });
+          
           peer.on('error', (err) => {
+            if (!isComponentMounted) return;
+            
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             console.error('[WebRTC] Error en Peer:', err);
@@ -347,35 +400,74 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           });
         };
 
-        socket.on("partner", (data: { id: string; initiator: boolean; }) => { setupPeer(data.id, data.initiator); });
-        socket.on("signal", (data: { from: string; signal: Peer.SignalData; }) => { peerRef.current?.signal(data.signal); });
+        socket.on("partner", (data: { id: string; initiator: boolean; }) => { 
+          if (isComponentMounted) {
+            setupPeer(data.id, data.initiator); 
+          }
+        });
+        
+        socket.on("signal", (data: { from: string; signal: Peer.SignalData; }) => { 
+          if (peerRef.current && isComponentMounted) {
+            peerRef.current.signal(data.signal); 
+          }
+        });
 
         socket.on("partner_disconnected", () => {
-            setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
-            if(peerRef.current) peerRef.current.destroy();
-            const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
-            socketRef.current?.emit('find_partner', { interests: interestsArray, ageFilter });
+          if (!isComponentMounted) return;
+          
+          setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
+          if(peerRef.current) {
+            peerRef.current.destroy();
+            peerRef.current = undefined;
+          }
+          const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
+          socketRef.current?.emit('find_partner', { interests: interestsArray, ageFilter });
         });
 
         socket.on("partner_muted", (muted: boolean) => {
-          setIsPartnerMuted(muted);
+          if (isComponentMounted) {
+            setIsPartnerMuted(muted);
+          }
         });
 
         socket.on("partner_video_off", (videoOff: boolean) => {
-          setIsPartnerVideoOff(videoOff);
+          if (isComponentMounted) {
+            setIsPartnerVideoOff(videoOff);
+          }
         });
       })
       .catch(err => {
         console.error("Error al obtener media:", err);
-        setStatus("No se pudo acceder a la cámara o micrófono.");
+        if (isComponentMounted) {
+          setStatus("No se pudo acceder a la cámara o micrófono.");
+        }
       });
 
     return () => {
-      myStream?.getTracks().forEach(track => track.stop());
-      peerRef.current?.destroy();
+      isComponentMounted = false;
+      clearInterval(userCountInterval);
+      
+      if (myStream) {
+        myStream.getTracks().forEach(track => track.stop());
+      }
+      
+      if (peerRef.current) {
+        peerRef.current.removeAllListeners && peerRef.current.removeAllListeners();
+        peerRef.current.destroy();
+        peerRef.current = undefined;
+      }
+      
+      socket.off('connect', onConnect);
+      socket.off('user_count', onUserCount);
+      socket.off("partner");
+      socket.off("signal");
+      socket.off("partner_disconnected");
+      socket.off("partner_muted");
+      socket.off("partner_video_off");
+      
       socket.disconnect();
     };
-  }, [interests, ageFilter, initializeConnection, startNewChat]);
+  }, [interests, ageFilter]);
   
   const monitorConnectionQuality = (peer: Peer.Instance) => {
     // Simple-peer no tiene getStats, así que usamos un enfoque más simple
