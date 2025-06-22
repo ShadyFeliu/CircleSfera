@@ -114,6 +114,45 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   // Emojis disponibles
   const emojis = ["😀", "😂", "😍", "🤔", "👍", "👎", "❤️", "🔥", "🎉", "😎", "🤣", "😭", "😱", "😴", "🤗", "😇"];
 
+  const startNewChat = useCallback(() => {
+    if (socketRef.current?.connected) {
+      console.log('Buscando nuevo compañero con intereses:', interests);
+      const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
+      socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter });
+      setConnectionStatus("waiting");
+      setStatus("Buscando un compañero...");
+    } else {
+      console.error("No se puede iniciar un nuevo chat, el socket no está conectado.");
+      // Opcionalmente, intentar reconectar o mostrar un error al usuario.
+    }
+  }, [interests, ageFilter]);
+
+  const handleNextChat = useCallback(() => {
+    // 1. Destruir la conexión de pares (peer) anterior si existe
+    if (peerRef.current) {
+      peerRef.current.destroy();
+    }
+    
+    // 2. Limpiar el estado de la UI
+    setMessages([]);
+    setStatus("Buscando un compañero...");
+    setConnectionStatus("waiting");
+    setIsPartnerMuted(false);
+    setIsPartnerVideoOff(false);
+    if(partnerVideo.current) {
+        partnerVideo.current.srcObject = null;
+    }
+
+    // 3. Emitir el evento para buscar un nuevo compañero usando el socket existente
+    if (socketRef.current?.connected) {
+      const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
+      socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter });
+    } else {
+      console.error("Socket no conectado. No se puede buscar nuevo compañero.");
+      // Opcionalmente, mostrar un error al usuario aquí
+    }
+  }, [interests, ageFilter]);
+
   // Connection initialization function
   const initializeConnection = () => {
     setConnectionStatus("connecting");
@@ -169,54 +208,46 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     }
   }, [connectionStatus, connectionError, reconnectAttempts]);
 
-  const handleNextChat = useCallback(() => {
-    if (peerRef.current) {
-      peerRef.current.destroy();
-    }
-    setMessages([]);
-    setConnectionStatus("connecting");
-    setConnectionError(null);
-    setReconnectAttempts(0);
-    
-    // NO crear una nueva conexión. Usar la existente.
-    if (socketRef.current?.connected) {
-      const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
-      socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter });
-    } else {
-      // Como fallback, si no hay socket, recargar.
-      window.location.reload();
-    }
-  }, [interests, ageFilter]);
-
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (peerRef.current && connectionStatus === "connected") {
-      const interval = setInterval(() => {
-        monitorConnectionQuality(peerRef.current!);
-      }, 5000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [connectionStatus, addChatTime, addCountry, addInterest, incrementChats, handleNextChat]);
-
-  useEffect(() => {
-    // Initialize socket connection
     const socket = initializeConnection();
-    let myStream: MediaStream;
+    let myStream: MediaStream | undefined;
 
-    socket.on('connect', () => {
+    // Conectar solo una vez
+    if (!socketRef.current) {
+      socketRef.current = socket;
+    }
+
+    const onConnect = () => {
       console.log('Conectado al servidor! Buscando pareja con intereses:', interests);
-      const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
-      socket.emit('find_partner', { interests: interestsArray, ageFilter });
+      startNewChat();
       socket.emit('get_user_count');
-    });
+    };
 
-    socket.on('user_count', (count: number) => {
+    const onUserCount = (count: number) => {
       setOnlineUsers(count);
-    });
+    };
+
+    socket.on('connect', onConnect);
+    socket.on('user_count', onUserCount);
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus("Error: La cámara no es accesible en este navegador o la página no es segura (se requiere HTTPS).");
+      socket.off('connect', onConnect);
+      socket.off('user_count', onUserCount);
+      socket.off("partner");
+      socket.off("signal");
+      socket.off("partner_disconnected");
+      socket.off("partner_muted");
+      socket.off("partner_video_off");
+      
+      if (myStream) {
+        myStream.getTracks().forEach(track => track.stop());
+      }
+      if (peerRef.current) {
+        peerRef.current.destroy();
+      }
+      // No desconectar el socket aquí para reutilizarlo
       return;
     }
 
@@ -385,34 +416,41 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       peerRef.current?.destroy();
       socket.disconnect();
     };
-  }, [interests, ageFilter, handleNextChat]);
+  }, [interests, ageFilter, initializeConnection, startNewChat]);
   
   const monitorConnectionQuality = (peer: Peer.Instance) => {
-    try {
-      // Access the underlying RTCPeerConnection
-      const pc = (peer as unknown as { _pc: RTCPeerConnection })._pc;
-      if (pc) {
-        pc.getStats().then((stats: RTCStatsReport) => {
-          stats.forEach((report: RTCStats) => {
-            if (report.type === 'candidate-pair') {
-              const candidatePair = report as RTCIceCandidatePairStats;
-              if (candidatePair.state === 'succeeded' && candidatePair.currentRoundTripTime) {
-                const rtt = candidatePair.currentRoundTripTime;
-                if (rtt < 0.1) {
-                  setConnectionQuality("good");
-                } else if (rtt < 0.3) {
-                  setConnectionQuality("fair");
-                } else {
-                  setConnectionQuality("poor");
-                }
-              }
-            }
-          });
-        });
+    // Simple-peer no tiene getStats, así que usamos un enfoque más simple
+    // basado en el estado de la conexión
+    const checkConnectionQuality = () => {
+      if (peer.connected) {
+        // Si la conexión está establecida, consideramos que es buena
+        setConnectionQuality("good");
+      } else if (peer.destroyed) {
+        setConnectionQuality("poor");
+      } else {
+        setConnectionQuality("fair");
       }
-    } catch (error) {
-      console.error('Error monitoring connection quality:', error);
-    }
+    };
+
+    // Verificar calidad inicial
+    checkConnectionQuality();
+
+    // Configurar intervalos para monitorear la calidad
+    const interval = setInterval(checkConnectionQuality, 5000);
+
+    // Limpiar intervalo cuando el peer se destruya
+    peer.on('close', () => {
+      clearInterval(interval);
+      setConnectionQuality("poor");
+    });
+
+    peer.on('connect', () => {
+      setConnectionQuality("good");
+    });
+
+    peer.on('error', () => {
+      setConnectionQuality("poor");
+    });
   };
   
   // Handle WebRTC peer errors
@@ -641,7 +679,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           </button>
 
           <button 
-            onClick={() => setShowScreenRecorder(!showScreenRecorder)} 
+            onClick={() => setShowScreenRecorder(!showScreenRecorder)}
+            disabled={connectionStatus !== 'connected'}
             className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full text-sm transition-colors"
           >
             🎥
