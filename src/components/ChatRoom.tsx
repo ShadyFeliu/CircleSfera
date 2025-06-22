@@ -909,7 +909,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               autoPlay 
               muted 
               playsInline
-              className={`w-32 h-24 lg:w-56 lg:h-42 absolute right-4 lg:right-6 bottom-4 lg:bottom-6 rounded-xl object-cover ring-4 ring-gray-700 transition-all duration-300 shadow-lg z-50 ${myFilter} transform-gpu`} 
+              className={`w-32 h-32 lg:w-48 lg:h-48 absolute right-4 lg:right-6 bottom-4 lg:bottom-6 rounded-xl object-cover ring-4 ring-gray-700 transition-all duration-300 shadow-lg z-50 ${myFilter} transform-gpu`} 
             />
             
             {/* Overlay de estado - Mejorado */}
