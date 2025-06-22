@@ -5,12 +5,14 @@ import Peer from 'simple-peer';
 
 interface EnhancedWebRTCProps {
   stream: MediaStream | null;
+  partnerStream?: MediaStream | null;
   onStream: (stream: MediaStream) => void;
   onConnectionChange: (connected: boolean) => void;
   onQualityChange: (quality: 'excellent' | 'good' | 'poor') => void;
   isInitiator: boolean;
   signalData: Peer.SignalData | null;
   onSignal: (data: Peer.SignalData) => void;
+  onClose: () => void;
 }
 
 interface VideoFilter {
@@ -30,21 +32,21 @@ interface VideoEffect {
 
 export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
   stream,
+  partnerStream,
   onStream,
   onConnectionChange,
   onQualityChange,
   isInitiator,
   signalData,
-  onSignal
+  onSignal,
+  onClose,
 }) => {
-  const peerRef = useRef<Peer.Instance | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
-  const [isConnected, setIsConnected] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [currentFilter, setCurrentFilter] = useState<string>('none');
   const [currentEffect, setCurrentEffect] = useState<string>('none');
@@ -119,54 +121,26 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
   useEffect(() => {
     if (!stream) return;
 
-    const peer = new Peer({
-      initiator: isInitiator,
-      trickle: false,
-      config: rtcConfig,
-      stream: stream
-    });
-
-    peerRef.current = peer;
-
-    peer.on('signal', (data) => {
-      onSignal(data);
-    });
-
-    peer.on('stream', (remoteStream) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStream;
-        onStream(remoteStream);
-      }
-    });
-
-    peer.on('connect', () => {
-      setIsConnected(true);
-      onConnectionChange(true);
-      console.log('WebRTC conectado');
-    });
-
-    peer.on('close', () => {
-      setIsConnected(false);
-      onConnectionChange(false);
-      console.log('WebRTC desconectado');
-    });
-
-    peer.on('error', (err) => {
-      console.error('Error de WebRTC:', err);
-      onConnectionChange(false);
-    });
-
-    return () => {
-      peer.destroy();
-    };
-  }, [stream, isInitiator, onSignal, onStream, onConnectionChange, rtcConfig]);
-
-  // Manejar señales entrantes
-  useEffect(() => {
-    if (peerRef.current && signalData) {
-      peerRef.current.signal(signalData);
+    // Asegurar que el stream local se asigne solo una vez
+    if (localVideoRef.current && !localVideoRef.current.srcObject) {
+      localVideoRef.current.srcObject = stream;
     }
-  }, [signalData]);
+
+    // Asignar el stream del compañero directamente si está disponible
+    if (partnerStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = partnerStream;
+    }
+
+    // No crear una nueva conexión WebRTC aquí, solo mostrar los streams existentes
+    console.log('WebRTC Avanzado: Mostrando streams existentes');
+  }, [stream, partnerStream]);
+
+  // Manejar señales entrantes - no necesario si no creamos nueva conexión
+  // useEffect(() => {
+  //   if (peerRef.current && signalData) {
+  //     peerRef.current.signal(signalData);
+  //   }
+  // }, [signalData]);
 
   // Aplicar filtro al video local
   useEffect(() => {
@@ -196,43 +170,33 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
 
   // Monitorear calidad de conexión
   const monitorConnectionQuality = useCallback(async () => {
-    if (!peerRef.current || !isConnected) return;
+    // Simular estadísticas para demostración ya que no tenemos conexión WebRTC directa
+    console.log('Monitoreando calidad de conexión...');
+    
+    const mockStats = {
+      rtt: Math.random() * 200 + 50,
+      packetsLost: Math.floor(Math.random() * 10),
+      bitrate: Math.random() * 1000000 + 500000
+    };
 
-    try {
-      // Nota: simple-peer no tiene getStats nativo, esto es un placeholder
-      // En una implementación real, necesitarías usar RTCPeerConnection directamente
-      console.log('Monitoreando calidad de conexión...');
-      
-      // Simular estadísticas para demostración
-      const mockStats = {
-        rtt: Math.random() * 200 + 50,
-        packetsLost: Math.floor(Math.random() * 10),
-        bitrate: Math.random() * 1000000 + 500000
-      };
+    setConnectionStats(mockStats);
 
-      setConnectionStats(mockStats);
-
-      // Determinar calidad basada en métricas simuladas
-      let quality: 'excellent' | 'good' | 'poor' = 'good';
-      if (mockStats.rtt < 100 && mockStats.packetsLost < 5) {
-        quality = 'excellent';
-      } else if (mockStats.rtt > 300 || mockStats.packetsLost > 20) {
-        quality = 'poor';
-      }
-
-      onQualityChange(quality);
-    } catch (error) {
-      console.error('Error obteniendo estadísticas:', error);
+    // Determinar calidad basada en métricas simuladas
+    let quality: 'excellent' | 'good' | 'poor' = 'good';
+    if (mockStats.rtt < 100 && mockStats.packetsLost < 5) {
+      quality = 'excellent';
+    } else if (mockStats.rtt > 300 || mockStats.packetsLost > 20) {
+      quality = 'poor';
     }
-  }, [isConnected, onQualityChange]);
+
+    onQualityChange(quality);
+  }, [onQualityChange]);
 
   // Monitorear calidad cada 5 segundos
   useEffect(() => {
-    if (!isConnected) return;
-
     const interval = setInterval(monitorConnectionQuality, 5000);
     return () => clearInterval(interval);
-  }, [isConnected, monitorConnectionQuality]);
+  }, [monitorConnectionQuality]);
 
   // Funciones de grabación
   const startRecording = useCallback(() => {
@@ -299,145 +263,104 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
   }, []);
 
   return (
-    <div className="relative">
-      {/* Videos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        {/* Video Local */}
-        <div className="relative">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-64 md:h-80 object-cover rounded-lg bg-gray-900"
-            style={{ filter: currentFilter !== 'none' ? videoFilters.find(f => f.id === currentFilter)?.cssFilter : 'none' }}
-          />
-          <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
-            Tú
-          </div>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100]">
+      <div className="bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-4xl border border-gray-700 text-white animate-fade-in-up">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold">WebRTC Avanzado</h2>
+          <button 
+            onClick={onClose} 
+            className="text-gray-400 hover:text-white text-3xl leading-none"
+            aria-label="Cerrar"
+          >
+            &times;
+          </button>
         </div>
 
-        {/* Video Remoto */}
-        <div className="relative">
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-64 md:h-80 object-cover rounded-lg bg-gray-900"
-          />
-          <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
-            {isConnected ? 'Conectado' : 'Conectando...'}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Columna de videos */}
+          <div className="space-y-4">
+            {/* Video Local */}
+            <div className="bg-gray-900 rounded-xl overflow-hidden relative border border-gray-600">
+              <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-auto" style={{ filter: videoFilters.find(f => f.id === currentFilter)?.cssFilter }} />
+              <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded-md text-sm">Tu Cámara</div>
+            </div>
+            
+            {/* Video Remoto */}
+            <div className="bg-gray-900 rounded-xl overflow-hidden relative border border-gray-600">
+              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-auto" />
+              <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded-md text-sm">Compañero</div>
+              {!partnerStream && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
+                  <div className="flex items-center space-x-2 text-yellow-400">
+                    <div className="w-3 h-3 rounded-full bg-yellow-400 animate-pulse"></div>
+                    <span>Conectando...</span>
+                  </div>
+                  <div className="mt-4 text-gray-300 text-sm">Esperando conexión...</div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Canvas oculto para screenshots */}
-      <canvas ref={canvasRef} className="hidden" />
-
-      {/* Controles */}
-      <div className="space-y-4">
-        {/* Botón para mostrar/ocultar controles */}
-        <button
-          onClick={() => setShowControls(!showControls)}
-          className="btn-secondary w-full"
-        >
-          {showControls ? '🔽 Ocultar Controles' : '🔼 Mostrar Controles'}
-        </button>
-
-        {showControls && (
-          <div className="space-y-4 fade-in">
-            {/* Filtros */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                Filtros de Video
-              </h3>
-              <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-                {videoFilters.map((filter) => (
-                  <button
-                    key={filter.id}
-                    onClick={() => setCurrentFilter(filter.id)}
-                    className={`p-2 rounded-lg border transition-all ${
-                      currentFilter === filter.id
-                        ? 'bg-blue-100 border-blue-500 text-blue-700 dark:bg-blue-900/20 dark:border-blue-400 dark:text-blue-300'
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    <div className="text-lg mb-1">{filter.icon}</div>
-                    <div className="text-xs">{filter.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Efectos */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                Efectos
-              </h3>
-              <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                {videoEffects.map((effect) => (
-                  <button
-                    key={effect.id}
-                    onClick={() => setCurrentEffect(currentEffect === effect.id ? 'none' : effect.id)}
-                    className={`p-2 rounded-lg border transition-all ${
-                      currentEffect === effect.id
-                        ? 'bg-purple-100 border-purple-500 text-purple-700 dark:bg-purple-900/20 dark:border-purple-400 dark:text-purple-300'
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    <div className="text-lg mb-1">{effect.icon}</div>
-                    <div className="text-xs">{effect.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Grabación y Screenshots */}
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                className={`btn-primary ${isRecording ? 'bg-red-600 hover:bg-red-700' : ''}`}
-              >
-                {isRecording ? '⏹️ Detener Grabación' : '🎥 Iniciar Grabación'}
-              </button>
-              <button
-                onClick={captureScreenshot}
-                className="btn-secondary"
-              >
-                📸 Capturar Screenshot
-              </button>
-            </div>
-
+          {/* Columna de Controles */}
+          <div className="flex flex-col space-y-4">
             {/* Estadísticas de Conexión */}
-            {isConnected && (
-              <div className="card">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Estadísticas de Conexión
-                </h3>
-                <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="bg-gray-700/50 p-4 rounded-xl">
+              <h3 className="font-bold mb-2">Estadísticas</h3>
+              <div className="text-sm space-y-1">
+                <p>RTT: {connectionStats.rtt.toFixed(0)} ms</p>
+                <p>Paquetes Perdidos: {connectionStats.packetsLost}</p>
+                <p>Bitrate: {(connectionStats.bitrate / 1000).toFixed(0)} kbps</p>
+              </div>
+            </div>
+
+            {/* Controles Avanzados */}
+            <div>
+              <button 
+                onClick={() => setShowControls(!showControls)}
+                className="w-full bg-gray-700 hover:bg-gray-600 py-2 rounded-lg transition-colors flex items-center justify-center"
+              >
+                <span className={`transform transition-transform ${showControls ? 'rotate-180' : ''}`}>▲</span>
+                <span className="ml-2">Mostrar Controles Avanzados</span>
+              </button>
+              
+              {showControls && (
+                <div className="mt-4 space-y-4 bg-gray-700/50 p-4 rounded-xl animate-fade-in">
+                  {/* Filtros */}
                   <div>
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {Math.round(connectionStats.rtt)}ms
+                    <h4 className="font-semibold mb-2">Filtros</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {videoFilters.map(filter => (
+                        <button key={filter.id} onClick={() => setCurrentFilter(filter.id)} className={`px-3 py-1 rounded-md text-xs transition-colors ${currentFilter === filter.id ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-500'}`}>
+                          {filter.icon} {filter.name}
+                        </button>
+                      ))}
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Latencia</div>
                   </div>
+                  {/* Efectos */}
                   <div>
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {connectionStats.packetsLost}
+                    <h4 className="font-semibold mb-2">Efectos</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {videoEffects.map(effect => (
+                        <button key={effect.id} onClick={() => setCurrentEffect(effect.id)} className={`px-3 py-1 rounded-md text-xs transition-colors ${currentEffect === effect.id ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-500'}`}>
+                          {effect.icon} {effect.name}
+                        </button>
+                      ))}
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Paquetes Perdidos</div>
                   </div>
+                  {/* Grabación */}
                   <div>
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                      {Math.round(connectionStats.bitrate / 1024)}KB/s
+                    <h4 className="font-semibold mb-2">Grabación</h4>
+                    <div className="flex gap-2">
+                      <button onClick={startRecording} disabled={isRecording} className="bg-green-600 hover:bg-green-700 disabled:bg-gray-500 px-3 py-1 rounded-md text-xs">Grabar</button>
+                      <button onClick={stopRecording} disabled={!isRecording} className="bg-red-600 hover:bg-red-700 disabled:bg-gray-500 px-3 py-1 rounded-md text-xs">Detener</button>
+                      <button onClick={captureScreenshot} className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-xs">Capturar Screenshot</button>
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Bitrate</div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

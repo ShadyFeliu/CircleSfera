@@ -12,11 +12,7 @@ export default function Home() {
   const { toggleTheme, colorScheme } = useTheme();
 
   const handleStartChat = () => {
-    if (interests.trim()) {
-      setShowChat(true);
-    } else {
-      alert("Por favor, ingresa al menos un interés para comenzar.");
-    }
+    setShowChat(true);
   };
 
   const handleBackToHome = () => {
@@ -31,7 +27,7 @@ export default function Home() {
         <ChatRoom interests={interests} ageFilter={ageFilter} />
         <button
           onClick={handleBackToHome}
-          className="fixed top-4 left-4 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors z-50"
+          className="fixed top-4 left-4 bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition-colors z-10 shadow-lg border border-gray-600 text-sm"
         >
           ← Volver
         </button>
@@ -67,18 +63,6 @@ export default function Home() {
           <p className="text-xl md:text-2xl mb-8 text-gray-300">
             Conecta con personas increíbles de todo el mundo
           </p>
-          
-          {/* Indicador de tema actual */}
-          <div className="mb-8">
-            <span className="text-sm text-gray-400">
-              Tema: {colorScheme === 'blue' ? 'Azul' : 
-                     colorScheme === 'purple' ? 'Púrpura' : 
-                     colorScheme === 'green' ? 'Verde' : 
-                     colorScheme === 'orange' ? 'Naranja' : 
-                     colorScheme === 'pink' ? 'Rosa' : 
-                     colorScheme === 'red' ? 'Rojo' : 'Azul'}
-            </span>
-          </div>
         </div>
 
         {/* Nuevas funcionalidades destacadas */}

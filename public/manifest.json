@@ -1,0 +1,26 @@
+{
+  "name": "CircleSfera - Videochat Aleatorio",
+  "short_name": "CircleSfera",
+  "description": "Plataforma de videochat aleatorio con temas personalizables y dashboard personal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1f2937",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "permissions": [
+    "camera",
+    "microphone",
+    "display-capture"
+  ],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "communication", "entertainment"],
+  "lang": "es",
+  "dir": "ltr"
+} 
