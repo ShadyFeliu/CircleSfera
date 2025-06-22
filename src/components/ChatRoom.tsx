@@ -392,13 +392,21 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
+            
+            // Marcar como desconexión normal, no como error
+            if (markIntentionalDisconnectRef.current) {
+              markIntentionalDisconnectRef.current();
+            }
+            
             setStatus("Tu compañero se ha desconectado.");
             setConnectionStatus("disconnected");
+            setConnectionQuality("fair"); // Resetear a neutral, no a mala
+            
             if (partnerVideo.current) {
               partnerVideo.current.srcObject = null;
             }
             addCountry(["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"][Math.floor(Math.random() * 6)]);
-            console.log('[WebRTC] Peer cerrado');
+            console.log('[WebRTC] Peer cerrado - desconexión normal');
           });
           
           peer.on('error', (err) => {
@@ -407,7 +415,19 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             console.error('[WebRTC] Error en Peer:', err);
-            handlePeerError(err);
+            
+            // Solo marcar como error si es un error crítico
+            if (err.message && (
+              err.message.includes('ICE') || 
+              err.message.includes('connection') ||
+              err.message.includes('network')
+            )) {
+              handlePeerError(err);
+            } else {
+              // Para errores menores, solo log y continuar
+              console.warn('[WebRTC] Error menor en peer:', err.message);
+              setConnectionQuality("fair");
+            }
           });
         };
 
@@ -510,7 +530,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       clearInterval(interval);
       // Solo marcar como mala si no fue intencional
       if (!isIntentionalDisconnect) {
-        setConnectionQuality("poor");
+        // Para desconexiones normales, mantener neutral en lugar de mala
+        setConnectionQuality("fair");
       }
     });
 
@@ -520,9 +541,16 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
     peer.on('error', (err) => {
       console.warn('[WebRTC] Error en peer (puede ser normal):', err);
-      // Solo marcar como mala si es un error crítico
-      if (err.message && err.message.includes('ICE')) {
+      // Solo marcar como mala si es un error crítico de ICE
+      if (err.message && (
+        err.message.includes('ICE') || 
+        err.message.includes('connection') ||
+        err.message.includes('network')
+      )) {
         setConnectionQuality("poor");
+      } else {
+        // Para errores menores, mantener neutral
+        setConnectionQuality("fair");
       }
     });
     
