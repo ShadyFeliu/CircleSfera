@@ -678,60 +678,63 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   };
 
   return (
-    <div className="w-full max-w-6xl grid grid-cols-3 gap-4 relative">
+    <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 relative min-h-screen">
       {(connectionStatus === "error" || connectionStatus === "banned") && <ConnectionErrorMessage />}
-      <div className="col-span-2 flex flex-col">
-        <div className="w-full h-[32rem] bg-black rounded-lg overflow-hidden relative video-container">
+      
+      {/* Contenedor principal de video */}
+      <div className="flex-1 flex flex-col">
+        <div className="w-full h-[50vh] lg:h-[32rem] bg-black rounded-lg overflow-hidden relative video-container">
           <video ref={partnerVideo} autoPlay className="w-full h-full object-cover" />
-          <video ref={myVideo} autoPlay muted className={`w-48 h-36 absolute right-4 bottom-4 rounded-md object-cover ring-2 ring-gray-700 transition-all duration-300 ${myFilter} ${isVideoOff ? 'hidden' : ''}`} />
+          <video ref={myVideo} autoPlay muted className={`w-24 h-18 lg:w-48 lg:h-36 absolute right-2 lg:right-4 bottom-2 lg:bottom-4 rounded-md object-cover ring-2 ring-gray-700 transition-all duration-300 ${myFilter} ${isVideoOff ? 'hidden' : ''}`} />
           
-          {/* Overlay de estado */}
-          <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white p-2 rounded animate-fade-in z-10">
+          {/* Overlay de estado - responsive */}
+          <div className="absolute top-2 lg:top-4 left-2 lg:left-4 bg-black bg-opacity-50 text-white p-1 lg:p-2 rounded animate-fade-in z-10 text-xs lg:text-sm">
             {status}
           </div>
           
-          {/* Indicador de usuarios online */}
-          <div className="absolute top-4 right-4 bg-green-600 text-white px-2 py-1 rounded text-sm animate-fade-in z-10">
+          {/* Indicador de usuarios online - responsive */}
+          <div className="absolute top-2 lg:top-4 right-2 lg:right-4 bg-green-600 text-white px-1 lg:px-2 py-1 rounded text-xs lg:text-sm animate-fade-in z-10">
             {onlineUsers} online
           </div>
 
-          {/* Indicador de calidad de conexión - movido a la parte superior derecha */}
-          <div className="absolute top-12 right-4 bg-black bg-opacity-50 text-white p-2 rounded connection-indicator z-10">
+          {/* Indicador de calidad de conexión - responsive */}
+          <div className="absolute top-8 lg:top-12 right-2 lg:right-4 bg-black bg-opacity-50 text-white p-1 lg:p-2 rounded connection-indicator z-10">
             <div className="flex items-center space-x-1">
-              <div className={`w-2 h-2 rounded-full ${connectionQuality === 'good' ? 'bg-green-500' : connectionQuality === 'fair' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-              <span className="text-xs">{connectionQuality === 'good' ? 'Buena' : connectionQuality === 'fair' ? 'Regular' : 'Mala'} conexión</span>
+              <div className={`w-1 lg:w-2 h-1 lg:h-2 rounded-full ${connectionQuality === 'good' ? 'bg-green-500' : connectionQuality === 'fair' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+              <span className="text-xs hidden sm:inline">{connectionQuality === 'good' ? 'Buena' : connectionQuality === 'fair' ? 'Regular' : 'Mala'} conexión</span>
             </div>
           </div>
 
-          {/* Indicadores de estado del compañero - posicionados para no superponerse */}
-          <div className="absolute top-2 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
+          {/* Indicadores de estado del compañero - responsive */}
+          <div className="absolute top-1 lg:top-2 left-1/2 transform -translate-x-1/2 flex space-x-1 lg:space-x-2 z-10">
             {isPartnerMuted && (
-              <div className="bg-red-600 text-white px-2 py-1 rounded animate-fade-in text-xs">
-                🔇 Silenciado
+              <div className="bg-red-600 text-white px-1 lg:px-2 py-1 rounded animate-fade-in text-xs">
+                🔇
               </div>
             )}
             
             {isPartnerVideoOff && (
-              <div className="bg-gray-600 text-white px-2 py-1 rounded animate-fade-in text-xs">
-                📹 Sin video
+              <div className="bg-gray-600 text-white px-1 lg:px-2 py-1 rounded animate-fade-in text-xs">
+                📹
               </div>
             )}
           </div>
         </div>
 
-        {/* Controles principales */}
-        <div className="mt-4 flex justify-center items-center space-x-4">
-          <div className="flex space-x-2">
-            <button onClick={() => setMyFilter('')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full text-sm transition-colors">Normal</button>
-            <button onClick={() => setMyFilter('grayscale')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full text-sm transition-colors">B&N</button>
-            <button onClick={() => setMyFilter('sepia')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full text-sm transition-colors">Sepia</button>
-            <button onClick={() => setMyFilter('invert')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full text-sm transition-colors">Invertir</button>
+        {/* Controles principales - responsive */}
+        <div className="mt-2 lg:mt-4 flex flex-wrap justify-center items-center gap-2 lg:gap-4 p-2">
+          {/* Filtros - responsive */}
+          <div className="flex flex-wrap gap-1 lg:gap-2">
+            <button onClick={() => setMyFilter('')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors">Normal</button>
+            <button onClick={() => setMyFilter('grayscale')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors">B&N</button>
+            <button onClick={() => setMyFilter('sepia')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors">Sepia</button>
+            <button onClick={() => setMyFilter('invert')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors">Invertir</button>
           </div>
           
-          {/* Controles de audio/video */}
+          {/* Controles de audio/video - responsive */}
           <button 
             onClick={toggleMute} 
-            className={`font-bold py-2 px-4 rounded-full text-sm transition-colors ${isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
+            className={`font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors ${isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
           >
             {isMuted ? '🔇' : '🔊'}
           </button>
@@ -739,18 +742,18 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           <button 
             onClick={toggleVideo} 
             aria-label="Activar/desactivar video"
-            className={`font-bold py-2 px-4 rounded-full text-sm transition-colors ${isVideoOff ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
+            className={`font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors ${isVideoOff ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
           >
             {isVideoOff ? '📹' : '📷'}
           </button>
 
-          <button onClick={handleNextChat} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full text-lg transition-transform transform hover:scale-105">
+          <button onClick={handleNextChat} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 lg:py-2 px-3 lg:px-6 rounded-full text-sm lg:text-lg transition-transform transform hover:scale-105">
             Siguiente
           </button>
 
           <button 
             onClick={() => setShowReportModal(true)} 
-            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full text-sm transition-colors"
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors"
           >
             Reportar
           </button>
@@ -758,7 +761,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           <button 
             onClick={() => setShowScreenRecorder(!showScreenRecorder)}
             disabled={connectionStatus !== 'connected'}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full text-sm transition-colors"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors"
           >
             🎥
           </button>
@@ -766,20 +769,20 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         {/* Grabador de pantalla */}
         {showScreenRecorder && (
-          <div className="mt-4">
+          <div className="mt-2 lg:mt-4">
             <ScreenRecorder />
           </div>
         )}
       </div>
 
-      {/* Panel de chat */}
-      <div className="col-span-1 bg-gray-800 rounded-lg p-4 flex flex-col h-full max-h-[36rem]">
-        <h2 className="text-xl font-bold mb-4">Chat</h2>
+      {/* Panel de chat - responsive */}
+      <div className="w-full lg:w-80 bg-gray-800 rounded-lg p-2 lg:p-4 flex flex-col h-[40vh] lg:h-[36rem]">
+        <h2 className="text-lg lg:text-xl font-bold mb-2 lg:mb-4">Chat</h2>
         
-        <div className="flex-grow overflow-y-auto mb-4 p-2 bg-gray-700 rounded-md custom-scrollbar">
+        <div className="flex-grow overflow-y-auto mb-2 lg:mb-4 p-1 lg:p-2 bg-gray-700 rounded-md custom-scrollbar">
           {messages.map((message, index) => (
             <div key={index} className={`mb-2 ${message.author === "me" ? "text-right" : "text-left"}`}>
-              <div className={`inline-block p-2 rounded-lg max-w-xs ${
+              <div className={`inline-block p-1 lg:p-2 rounded-lg max-w-[80%] lg:max-w-xs ${
                 message.author === "me" 
                   ? "bg-blue-600 text-white" 
                   : "bg-gray-600 text-white"
@@ -788,12 +791,12 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
                   <Image 
                     src={message.imageUrl} 
                     alt="Imagen compartida" 
-                    width={200} 
-                    height={150}
-                    className="rounded mb-1"
+                    width={150} 
+                    height={100}
+                    className="rounded mb-1 w-full"
                   />
                 )}
-                <p className="text-sm">{message.text}</p>
+                <p className="text-xs lg:text-sm">{message.text}</p>
                 <p className="text-xs opacity-70 mt-1">{formatTime(message.timestamp)}</p>
               </div>
             </div>
@@ -803,7 +806,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         <div className="h-6">
           {isPartnerTyping && (
             <div className="typing-indicator">
-              <span className="text-sm text-gray-400 italic">El compañero está escribiendo</span>
+              <span className="text-xs lg:text-sm text-gray-400 italic">El compañero está escribiendo</span>
               <div className="typing-dot"></div>
               <div className="typing-dot"></div>
               <div className="typing-dot"></div>
@@ -811,18 +814,18 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           )}
         </div>
 
-        {/* Controles de chat */}
-        <div className="flex space-x-2 mb-2">
+        {/* Controles de chat - responsive */}
+        <div className="flex space-x-1 lg:space-x-2 mb-2">
           <button 
             onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
-            className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm transition-colors"
+            className="bg-gray-600 hover:bg-gray-500 text-white px-2 lg:px-3 py-1 rounded text-xs lg:text-sm transition-colors"
           >
             😀
           </button>
           <button 
             onClick={() => fileInputRef.current?.click()} 
             aria-label="Enviar imagen"
-            className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm transition-colors"
+            className="bg-gray-600 hover:bg-gray-500 text-white px-2 lg:px-3 py-1 rounded text-xs lg:text-sm transition-colors"
           >
             📷
           </button>
@@ -835,14 +838,14 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           />
         </div>
 
-        {/* Selector de emojis */}
+        {/* Selector de emojis - responsive */}
         {showEmojiPicker && (
-          <div className="bg-gray-700 p-2 rounded mb-2 emoji-grid">
+          <div className="bg-gray-700 p-1 lg:p-2 rounded mb-2 emoji-grid">
             {emojis.map((emoji, index) => (
               <button
                 key={index}
                 onClick={() => handleSendEmoji(emoji)}
-                className="emoji-button"
+                className="emoji-button text-sm lg:text-base"
               >
                 {emoji}
               </button>
@@ -850,49 +853,47 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           </div>
         )}
 
-        <form onSubmit={handleSendMessage}>
-          <input 
+        {/* Formulario de mensaje - responsive */}
+        <form onSubmit={handleSendMessage} className="flex space-x-1 lg:space-x-2">
+          <input
             ref={messageInputRef}
-            name="message" 
-            onKeyDown={handleTyping} 
-            className="w-full p-2 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300" 
-            placeholder="Escribe un mensaje..." 
+            type="text"
+            name="message"
+            placeholder="Escribe un mensaje..."
+            onInput={handleTyping}
+            className="flex-1 bg-gray-700 text-white px-2 lg:px-3 py-1 lg:py-2 rounded text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <button
+            type="submit"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-2 lg:px-4 py-1 lg:py-2 rounded text-xs lg:text-sm transition-colors"
+          >
+            Enviar
+          </button>
         </form>
       </div>
 
-      {/* Modal de reportar usuario */}
+      {/* Modal de reporte */}
       {showReportModal && (
-        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4 animate-fade-in">
-            <h3 className="text-xl font-bold mb-4">Reportar Usuario</h3>
-            <p className="text-gray-300 mb-4">¿Por qué quieres reportar a este usuario?</p>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 p-4">
+          <div className="bg-gray-800 p-4 lg:p-6 rounded-lg max-w-sm w-full">
+            <h3 className="text-lg lg:text-xl font-bold mb-4">Reportar Usuario</h3>
             <div className="space-y-2">
-              <button 
-                onClick={() => reportUser("Contenido inapropiado")}
-                className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
-              >
-                Contenido inapropiado
-              </button>
-              <button 
-                onClick={() => reportUser("Comportamiento abusivo")}
-                className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
-              >
-                Comportamiento abusivo
-              </button>
-              <button 
-                onClick={() => reportUser("Spam")}
-                className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
-              >
-                Spam
-              </button>
-              <button 
-                onClick={() => setShowReportModal(false)}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded transition-colors"
-              >
-                Cancelar
-              </button>
+              {["Contenido inapropiado", "Comportamiento abusivo", "Spam", "Otro"].map((reason) => (
+                <button
+                  key={reason}
+                  onClick={() => reportUser(reason)}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
+                >
+                  {reason}
+                </button>
+              ))}
             </div>
+            <button
+              onClick={() => setShowReportModal(false)}
+              className="w-full mt-4 bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}
