@@ -98,6 +98,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const myStreamRef = useRef<MediaStream>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
+  const markIntentionalDisconnectRef = useRef<(() => void) | null>(null);
 
   // Emojis disponibles
   const emojis = ["😀", "😂", "😍", "🤔", "👍", "👎", "❤️", "🔥", "🎉", "😎", "🤣", "😭", "😱", "😴", "🤗", "😇"];
@@ -116,12 +117,20 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, [interests, ageFilter]);
 
   const handleNextChat = useCallback(() => {
-    // Destruir peer anterior y limpiar video
+    // Marcar desconexión intencional para evitar falsos positivos de mala conexión
     if (peerRef.current) {
+      // Si tenemos la función de markIntentionalDisconnect, la llamamos
+      if (markIntentionalDisconnectRef.current) {
+        markIntentionalDisconnectRef.current();
+      }
       peerRef.current.removeAllListeners && peerRef.current.removeAllListeners();
       peerRef.current.destroy();
       peerRef.current = undefined;
     }
+    
+    // Resetear calidad de conexión a neutral
+    setConnectionQuality("fair");
+    
     setMessages([]);
     setStatus("Buscando un compañero...");
     setConnectionStatus("waiting");
@@ -329,7 +338,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               });
             }
             
-            monitorConnectionQuality(peer);
+            // Monitor calidad
+            const markIntentionalDisconnect = monitorConnectionQuality(peer);
+            markIntentionalDisconnectRef.current = markIntentionalDisconnect;
             console.log('[WebRTC] Peer conectado');
           });
           
@@ -470,38 +481,53 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, [interests, ageFilter]);
   
   const monitorConnectionQuality = (peer: Peer.Instance) => {
-    // Simple-peer no tiene getStats, así que usamos un enfoque más simple
-    // basado en el estado de la conexión
-    const checkConnectionQuality = () => {
+    let isIntentionalDisconnect = false;
+    
+    // Función para marcar desconexión intencional
+    const markIntentionalDisconnect = () => {
+      isIntentionalDisconnect = true;
+    };
+    
+    // Verificar calidad inicial
+    if (peer.connected) {
+      setConnectionQuality("good");
+    } else {
+      setConnectionQuality("fair");
+    }
+
+    // Configurar intervalos para monitorear la calidad solo si está conectado
+    const interval = setInterval(() => {
       if (peer.connected) {
-        // Si la conexión está establecida, consideramos que es buena
         setConnectionQuality("good");
-      } else if (peer.destroyed) {
-        setConnectionQuality("poor");
-      } else {
+      } else if (!peer.destroyed) {
         setConnectionQuality("fair");
       }
-    };
-
-    // Verificar calidad inicial
-    checkConnectionQuality();
-
-    // Configurar intervalos para monitorear la calidad
-    const interval = setInterval(checkConnectionQuality, 5000);
+      // No cambiamos a "poor" automáticamente para evitar falsos positivos
+    }, 10000); // Aumentar intervalo a 10 segundos
 
     // Limpiar intervalo cuando el peer se destruya
     peer.on('close', () => {
       clearInterval(interval);
-      setConnectionQuality("poor");
+      // Solo marcar como mala si no fue intencional
+      if (!isIntentionalDisconnect) {
+        setConnectionQuality("poor");
+      }
     });
 
     peer.on('connect', () => {
       setConnectionQuality("good");
     });
 
-    peer.on('error', () => {
-      setConnectionQuality("poor");
+    peer.on('error', (err) => {
+      console.warn('[WebRTC] Error en peer (puede ser normal):', err);
+      // Solo marcar como mala si es un error crítico
+      if (err.message && err.message.includes('ICE')) {
+        setConnectionQuality("poor");
+      }
     });
+    
+    // Retornar función para marcar desconexión intencional
+    return markIntentionalDisconnect;
   };
   
   // Handle WebRTC peer errors
