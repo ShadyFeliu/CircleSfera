@@ -40,35 +40,9 @@ jobs:
       env:
         NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
         
-    - name: Create build artifact archive
-      run: tar -czf nextjs-build.tar.gz .next
-
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
       with:
-        name: nextjs-build-archive
-        path: nextjs-build.tar.gz
-
-  deploy:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Download build artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: nextjs-build-archive
-
-    - name: Extract build artifact
-      run: tar -xzf nextjs-build.tar.gz
-
-    - name: Deploy to Vercel
-      uses: amondnet/vercel-action@v20
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.ORG_ID }}
-        vercel-project-id: ${{ secrets.PROJECT_ID }}
-        vercel-args: '--prod --yes'
+        file: ./coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
