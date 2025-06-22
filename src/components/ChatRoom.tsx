@@ -896,7 +896,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         {(connectionStatus === "error" || connectionStatus === "banned") && <ConnectionErrorMessage />}
         
         {/* Contenedor principal de video - Mejorado */}
-        <div className="flex-1 flex flex-col">
+        <div className={`flex-1 flex flex-col ${useEnhancedWebRTC ? 'hidden' : ''}`}>
           <div className="w-full h-[60vh] lg:h-[70vh] bg-gradient-to-br from-black to-gray-900 rounded-2xl overflow-hidden relative video-container shadow-2xl border border-gray-700">
             <video 
               ref={partnerVideo} 
@@ -1065,7 +1065,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         </div>
 
         {/* Panel de chat - Mejorado */}
-        <div className="w-full lg:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 lg:p-6 flex flex-col h-[50vh] lg:h-[70vh] shadow-2xl border border-gray-700">
+        <div className={`w-full lg:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 lg:p-6 flex flex-col h-[50vh] lg:h-[70vh] shadow-2xl border border-gray-700 ${useEnhancedWebRTC ? 'hidden' : ''}`}>
           <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">Chat</h2>
           
           <div className="flex-grow overflow-y-auto mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-xl custom-scrollbar border border-gray-600">
@@ -1228,7 +1228,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         {/* WebRTC Mejorado */}
         {useEnhancedWebRTC && myStreamRef.current && (
-          <div className="fixed inset-0 z-40 bg-black bg-opacity-75 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] bg-black bg-opacity-75 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
               <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
