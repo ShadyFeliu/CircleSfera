@@ -45,35 +45,23 @@ const ICE_SERVERS = {
         'stun:stun1.l.google.com:19302',
       ],
     },
-    // Usar servidores TURN de las variables de entorno si están disponibles
-    ...(process.env.NEXT_PUBLIC_TURN_URLS
-      ? [
-          {
-            urls: process.env.NEXT_PUBLIC_TURN_URLS.split(','),
-            username: process.env.NEXT_PUBLIC_TURN_USERNAME,
-            credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
-          },
-        ]
-      : // Como fallback, usar servidores gratuitos de OpenRelay para desarrollo
-        [
-          {
-            urls: [
-              'stun:relay.metered.ca:80',
-              'turn:relay.metered.ca:80',
-              'turn:relay.metered.ca:443',
-              'turns:relay.metered.ca:443?transport=tcp',
-            ],
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-          },
-        ]),
+    // Si quieres reintroducir TURN, descomenta y configura aquí
+    // {
+    //   urls: [
+    //     'turn:relay.metered.ca:80',
+    //     'turn:relay.metered.ca:443',
+    //     'turns:relay.metered.ca:443?transport=tcp',
+    //   ],
+    //   username: 'openrelayproject',
+    //   credential: 'openrelayproject',
+    // },
   ],
   iceCandidatePoolSize: 10,
 };
 
 // Connection timeout constants
-const CONNECTION_TIMEOUT = 15000; // 15 seconds
-const SIGNALING_TIMEOUT = 10000; // 10 seconds
+const CONNECTION_TIMEOUT = 30000; // 30 segundos
+const SIGNALING_TIMEOUT = 20000; // 20 segundos
 
 const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: string }) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -128,28 +116,26 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, [interests, ageFilter]);
 
   const handleNextChat = useCallback(() => {
-    // 1. Destruir la conexión de pares (peer) anterior si existe
+    // Destruir peer anterior y limpiar video
     if (peerRef.current) {
+      peerRef.current.removeAllListeners && peerRef.current.removeAllListeners();
       peerRef.current.destroy();
+      peerRef.current = undefined;
     }
-    
-    // 2. Limpiar el estado de la UI
     setMessages([]);
     setStatus("Buscando un compañero...");
     setConnectionStatus("waiting");
     setIsPartnerMuted(false);
     setIsPartnerVideoOff(false);
-    if(partnerVideo.current) {
-        partnerVideo.current.srcObject = null;
+    if (partnerVideo.current) {
+      partnerVideo.current.srcObject = null;
     }
-
-    // 3. Emitir el evento para buscar un nuevo compañero usando el socket existente
+    // Buscar nuevo compañero
     if (socketRef.current?.connected) {
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
       socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter });
     } else {
       console.error("Socket no conectado. No se puede buscar nuevo compañero.");
-      // Opcionalmente, mostrar un error al usuario aquí
     }
   }, [interests, ageFilter]);
 
@@ -261,94 +247,70 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         const setupPeer = (partnerID: string, initiator: boolean) => {
           if (peerRef.current) {
+            peerRef.current.removeAllListeners && peerRef.current.removeAllListeners();
             peerRef.current.destroy();
+            peerRef.current = undefined;
           }
-
+          let connectionTimeout: NodeJS.Timeout | undefined;
+          let signalingTimeout: NodeJS.Timeout | undefined;
           const peer = new Peer({
             initiator,
             trickle: true,
             stream: stream,
             config: ICE_SERVERS,
-            sdpTransform: (sdp) => {
-              // Force use of DTLS-SRTP for security
-              return sdp.replace('a=crypto', 'a=fingerprint');
-            },
             channelConfig: {
               ordered: true,
               maxRetransmits: 3
             }
           });
-          
           peerRef.current = peer;
-
-          // Set connection timeout
-          const connectionTimeout = setTimeout(() => {
+          // Debug logs
+          console.log('[WebRTC] Nuevo peer creado. Initiator:', initiator);
+          connectionTimeout = setTimeout(() => {
             if (!peer.connected) {
-              console.log('Connection timeout - searching for new partner');
+              console.warn('[WebRTC] Connection timeout. Destruyendo peer.');
               peer.destroy();
               handleNextChat();
             }
           }, CONNECTION_TIMEOUT);
-
-          // Set signaling timeout
-          const signalingTimeout = setTimeout(() => {
+          signalingTimeout = setTimeout(() => {
             if (!peer.connected) {
-              console.log('Signaling timeout - searching for new partner');
+              console.warn('[WebRTC] Signaling timeout. Destruyendo peer.');
               peer.destroy();
               handleNextChat();
             }
           }, SIGNALING_TIMEOUT);
-
           peer.on('connect', () => {
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             setStatus("Conectado");
             setConnectionStatus("connected");
             setMessages([]);
-            
-            // Increment chat count
             incrementChats();
-            
-            // Add interests to stats
             if (interests) {
               interests.split(',').forEach(interest => {
-                if (interest.trim()) {
-                  addInterest(interest.trim().toLowerCase());
-                }
+                if (interest.trim()) addInterest(interest.trim().toLowerCase());
               });
             }
-            
-            // Start chat timer
-            const chatStartTime = Date.now();
-            
-            // Monitor connection quality
+            // Monitor calidad
             monitorConnectionQuality(peer);
-            
-            // Return cleanup function to record chat duration when connection ends
-            return () => {
-              const chatDuration = (Date.now() - chatStartTime) / 1000 / 60; // Convert to minutes
-              if (chatDuration > 0.1) { // Only record if chat lasted more than 6 seconds
-                addChatTime(Math.round(chatDuration));
-              }
-            };
+            console.log('[WebRTC] Peer conectado');
           });
-
-          peer.on("signal", (signal) => {
-            socket.emit("signal", { to: partnerID, signal });
+          peer.on('signal', (signal) => {
+            socketRef.current?.emit("signal", { to: partnerID, signal });
           });
-
-          peer.on("stream", (partnerStream) => {
+          peer.on('stream', (partnerStream) => {
             if (partnerVideo.current) {
               partnerVideo.current.srcObject = partnerStream;
             }
+            console.log('[WebRTC] Stream de compañero recibido');
           });
-          
-          peer.on("data", (data) => {
+          peer.on('data', (data) => {
             try {
               const parsed: DataType = JSON.parse(data.toString());
               if (parsed.type === "chat") {
-                const message: Message = { 
-                  author: "partner", 
+                const message: Message = {
+                  author: "partner",
                   text: parsed.text,
                   timestamp: new Date(),
                   type: parsed.messageType || "text",
@@ -356,8 +318,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
                 };
                 setMessages((prev) => [...prev, message]);
                 setIsPartnerTyping(false);
-                
-                // Reproducir sonido de notificación
                 playNotificationSound();
               } else if (parsed.type === "typing") {
                 setIsPartnerTyping(parsed.value);
@@ -370,20 +330,19 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               console.error("Dato recibido no es JSON válido:", e);
             }
           });
-
-          peer.on("close", () => {
-             setStatus("Tu compañero se ha desconectado.");
-             setConnectionStatus("disconnected");
-             if (partnerVideo.current) { partnerVideo.current.srcObject = null; }
-             
-             // Add fictitious country data - in a real app, this would come from geolocation
-             const countries = ["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"];
-             const randomCountry = countries[Math.floor(Math.random() * countries.length)];
-             addCountry(randomCountry);
+          peer.on('close', () => {
+            clearTimeout(connectionTimeout);
+            clearTimeout(signalingTimeout);
+            setStatus("Tu compañero se ha desconectado.");
+            setConnectionStatus("disconnected");
+            if (partnerVideo.current) partnerVideo.current.srcObject = null;
+            addCountry(["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"][Math.floor(Math.random() * 6)]);
+            console.log('[WebRTC] Peer cerrado');
           });
-          
-          peer.on('error', (err) => { 
-            console.error('Error en Peer:', err); 
+          peer.on('error', (err) => {
+            clearTimeout(connectionTimeout);
+            clearTimeout(signalingTimeout);
+            console.error('[WebRTC] Error en Peer:', err);
             handlePeerError(err);
           });
         };
