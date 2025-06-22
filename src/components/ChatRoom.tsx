@@ -225,6 +225,15 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       if (isComponentMounted) {
         setOnlineUsers(count);
         console.log('[Users] Contador actualizado:', count);
+        
+        // Mostrar información especial cuando hay exactamente 2 personas
+        if (count === 2 && connectionStatus === "waiting") {
+          setStatus("¡Hay otra persona conectada! Emparejando automáticamente...");
+        } else if (count === 1 && connectionStatus === "waiting") {
+          setStatus("Esperando a que se conecte otra persona...");
+        } else if (count > 2 && connectionStatus === "waiting") {
+          setStatus("Buscando un compañero...");
+        }
       }
     };
 
