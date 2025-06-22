@@ -684,8 +684,19 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       {/* Contenedor principal de video */}
       <div className="flex-1 flex flex-col">
         <div className="w-full h-[50vh] lg:h-[32rem] bg-black rounded-lg overflow-hidden relative video-container">
-          <video ref={partnerVideo} autoPlay className="w-full h-full object-cover" />
-          <video ref={myVideo} autoPlay muted className={`w-24 h-18 lg:w-48 lg:h-36 absolute right-2 lg:right-4 bottom-2 lg:bottom-4 rounded-md object-cover ring-2 ring-gray-700 transition-all duration-300 ${myFilter} ${isVideoOff ? 'hidden' : ''}`} />
+          <video 
+            ref={partnerVideo} 
+            autoPlay 
+            playsInline
+            className="w-full h-full object-cover" 
+          />
+          <video 
+            ref={myVideo} 
+            autoPlay 
+            muted 
+            playsInline
+            className={`w-24 h-18 lg:w-48 lg:h-36 absolute right-2 lg:right-4 bottom-2 lg:bottom-4 rounded-md object-cover ring-2 ring-gray-700 transition-all duration-300 ${myFilter} ${isVideoOff ? 'hidden' : ''}`} 
+          />
           
           {/* Overlay de estado - responsive */}
           <div className="absolute top-2 lg:top-4 left-2 lg:left-4 bg-black bg-opacity-50 text-white p-1 lg:p-2 rounded animate-fade-in z-10 text-xs lg:text-sm">
