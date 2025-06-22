@@ -2,202 +2,185 @@
 
 import { useState, useEffect } from "react";
 import ChatRoom from "@/components/ChatRoom";
-import Stats from "@/components/Stats";
-
-type FavoriteInterest = {
-  text: string;
-  count: number;
-};
+import { useTheme } from "@/components/ThemeProvider";
 
 export default function Home() {
   const [interests, setInterests] = useState("");
-  const [isChatting, setIsChatting] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [favoriteInterests, setFavoriteInterests] = useState<FavoriteInterest[]>([]);
-  const [showFavorites, setShowFavorites] = useState(false);
-  const [ageFilter, setAgeFilter] = useState("all");
-
-  useEffect(() => {
-    // Cargar intereses favoritos desde localStorage - Frontend actualizado
-    const savedFavorites = localStorage.getItem('circleSfera_favorites');
-    if (savedFavorites) {
-      setFavoriteInterests(JSON.parse(savedFavorites));
-    }
-  }, []);
+  const [ageFilter, setAgeFilter] = useState("");
+  const [showChat, setShowChat] = useState(false);
+  const [showFeatures, setShowFeatures] = useState(false);
+  const { toggleTheme, colorScheme } = useTheme();
 
   const handleStartChat = () => {
     if (interests.trim()) {
-      // Guardar interés en favoritos
-      const newInterest = interests.trim().toLowerCase();
-      const existingIndex = favoriteInterests.findIndex(fav => fav.text === newInterest);
-      
-      if (existingIndex >= 0) {
-        const updated = [...favoriteInterests];
-        updated[existingIndex].count += 1;
-        setFavoriteInterests(updated);
-      } else {
-        setFavoriteInterests(prev => [...prev, { text: newInterest, count: 1 }]);
-      }
-      
-      // Guardar en localStorage
-      const updatedFavorites = existingIndex >= 0 
-        ? favoriteInterests.map((fav, i) => i === existingIndex ? { ...fav, count: fav.count + 1 } : fav)
-        : [...favoriteInterests, { text: newInterest, count: 1 }];
-      localStorage.setItem('circleSfera_favorites', JSON.stringify(updatedFavorites));
-    }
-    
-    setIsChatting(true);
-  };
-
-  const handleFavoriteClick = (favorite: string) => {
-    setInterests(favorite);
-  };
-
-  const removeFavorite = (text: string) => {
-    const updated = favoriteInterests.filter(fav => fav.text !== text);
-    setFavoriteInterests(updated);
-    localStorage.setItem('circleSfera_favorites', JSON.stringify(updated));
-  };
-
-  const shareApp = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: 'CircleSfera',
-        text: '¡Chatea con gente de todo el mundo en CircleSfera!',
-        url: window.location.href
-      });
+      setShowChat(true);
     } else {
-      // Fallback para navegadores que no soportan Web Share API
-      navigator.clipboard.writeText(window.location.href);
-      alert('¡Enlace copiado al portapapeles!');
+      alert("Por favor, ingresa al menos un interés para comenzar.");
     }
   };
+
+  const handleBackToHome = () => {
+    setShowChat(false);
+    setInterests("");
+    setAgeFilter("");
+  };
+
+  if (showChat) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white">
+        <ChatRoom interests={interests} ageFilter={ageFilter} />
+        <button
+          onClick={handleBackToHome}
+          className="fixed top-4 left-4 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors z-50"
+        >
+          ← Volver
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 md:p-24 bg-gray-900 text-white text-center">
-      {isChatting ? (
-        <ChatRoom interests={interests} ageFilter={ageFilter} />
-      ) : (
-        <>
-          <h1 className="text-5xl font-bold mb-4">CircleSfera</h1>
-          <p className="text-lg text-gray-400 mb-8">Chatea con gente de todo el mundo. Añade tus intereses para encontrar a alguien afín.</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 text-white">
+      {/* Header con controles de tema */}
+      <div className="absolute top-4 right-4 flex space-x-2">
+        <button
+          onClick={toggleTheme}
+          className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-all"
+          title="Cambiar tema"
+        >
+          🌙
+        </button>
+        <button
+          onClick={() => setShowFeatures(!showFeatures)}
+          className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-all"
+          title="Nuevas funcionalidades"
+        >
+          ✨
+        </button>
+      </div>
+
+      <div className="container mx-auto px-4 py-16">
+        <div className="text-center mb-12">
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            CircleSfera
+          </h1>
+          <p className="text-xl md:text-2xl mb-8 text-gray-300">
+            Conecta con personas increíbles de todo el mundo
+          </p>
           
-          <div className="w-full max-w-md">
-            <input
-              type="text"
-              value={interests}
-              onChange={(e) => setInterests(e.target.value)}
-              className="w-full p-3 rounded-md bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ej: música, programación, viajes (separados por coma)"
-            />
-            
-            {/* Filtro de edad */}
-            <div className="mt-4">
-              <label className="block text-sm font-medium mb-2">Filtro de edad:</label>
-              <select
-                value={ageFilter}
-                onChange={(e) => setAgeFilter(e.target.value)}
-                className="w-full p-3 rounded-md bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Todas las edades</option>
-                <option value="13-17">13-17 años</option>
-                <option value="18-25">18-25 años</option>
-                <option value="26-35">26-35 años</option>
-                <option value="36+">36+ años</option>
-              </select>
-            </div>
-            
-            {/* Intereses favoritos */}
-            {favoriteInterests.length > 0 && (
-              <div className="mt-4">
-                <button 
-                  onClick={() => setShowFavorites(!showFavorites)}
-                  className="text-blue-400 hover:text-blue-300 text-sm"
-                >
-                  {showFavorites ? 'Ocultar' : 'Mostrar'} intereses favoritos
-                </button>
-                
-                {showFavorites && (
-                  <div className="mt-2 p-3 bg-gray-800 rounded-md">
-                    <h4 className="text-sm font-bold mb-2">Tus intereses favoritos:</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {favoriteInterests
-                        .sort((a, b) => b.count - a.count)
-                        .map((favorite, index) => (
-                          <div key={index} className="flex items-center bg-gray-700 px-2 py-1 rounded text-xs">
-                            <button 
-                              onClick={() => handleFavoriteClick(favorite.text)}
-                              className="hover:text-blue-300 mr-1"
-                            >
-                              {favorite.text}
-                            </button>
-                            <span className="text-gray-400 mr-1">({favorite.count})</span>
-                            <button 
-                              onClick={() => removeFavorite(favorite.text)}
-                              className="text-red-400 hover:text-red-300"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
+          {/* Indicador de tema actual */}
+          <div className="mb-8">
+            <span className="text-sm text-gray-400">
+              Tema: {colorScheme === 'blue' ? 'Azul' : 
+                     colorScheme === 'purple' ? 'Púrpura' : 
+                     colorScheme === 'green' ? 'Verde' : 
+                     colorScheme === 'orange' ? 'Naranja' : 
+                     colorScheme === 'pink' ? 'Rosa' : 
+                     colorScheme === 'red' ? 'Rojo' : 'Azul'}
+            </span>
+          </div>
+        </div>
+
+        {/* Nuevas funcionalidades destacadas */}
+        {showFeatures && (
+          <div className="mb-12 p-6 bg-white bg-opacity-10 rounded-lg backdrop-blur-sm">
+            <h2 className="text-2xl font-bold mb-6 text-center">✨ Nuevas Funcionalidades</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="bg-white bg-opacity-5 p-4 rounded-lg">
+                <div className="text-3xl mb-2">🎨</div>
+                <h3 className="font-bold mb-2">Temas Personalizables</h3>
+                <p className="text-sm text-gray-300">Modo oscuro/claro y 6 esquemas de colores diferentes</p>
               </div>
-            )}
+              <div className="bg-white bg-opacity-5 p-4 rounded-lg">
+                <div className="text-3xl mb-2">📊</div>
+                <h3 className="font-bold mb-2">Dashboard Personal</h3>
+                <p className="text-sm text-gray-300">Estadísticas detalladas, analytics y logros desbloqueables</p>
+              </div>
+              <div className="bg-white bg-opacity-5 p-4 rounded-lg">
+                <div className="text-3xl mb-2">🎯</div>
+                <h3 className="font-bold mb-2">Preferencias Avanzadas</h3>
+                <p className="text-sm text-gray-300">Filtros por idioma, país, edad e intereses</p>
+              </div>
+              <div className="bg-white bg-opacity-5 p-4 rounded-lg">
+                <div className="text-3xl mb-2">📤</div>
+                <h3 className="font-bold mb-2">Integración Social</h3>
+                <p className="text-sm text-gray-300">Compartir en redes sociales y códigos de invitación</p>
+              </div>
+              <div className="bg-white bg-opacity-5 p-4 rounded-lg">
+                <div className="text-3xl mb-2">⚡</div>
+                <h3 className="font-bold mb-2">WebRTC Mejorado</h3>
+                <p className="text-sm text-gray-300">Filtros de video, grabación, screenshots y estadísticas</p>
+              </div>
+              <div className="bg-white bg-opacity-5 p-4 rounded-lg">
+                <div className="text-3xl mb-2">🔒</div>
+                <h3 className="font-bold mb-2">Seguridad Avanzada</h3>
+                <p className="text-sm text-gray-300">Mejor protección y moderación de contenido</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg p-8 mb-8">
+            <h2 className="text-2xl font-bold mb-6 text-center">Comienza tu aventura</h2>
             
-            <button 
-              onClick={handleStartChat}
-              className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full text-xl transition-transform transform hover:scale-105"
-            >
-              Buscar Chat
-            </button>
+            <div className="space-y-6">
+              <div>
+                <label htmlFor="interests" className="block text-sm font-medium mb-2">
+                  ¿Qué te interesa? (opcional)
+                </label>
+                <input
+                  id="interests"
+                  type="text"
+                  value={interests}
+                  onChange={(e) => setInterests(e.target.value)}
+                  placeholder="Ej: música, tecnología, viajes, deportes..."
+                  className="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Ayuda a encontrar personas con intereses similares
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="ageFilter" className="block text-sm font-medium mb-2">
+                  Filtro de edad (opcional)
+                </label>
+                <select
+                  id="ageFilter"
+                  value={ageFilter}
+                  onChange={(e) => setAgeFilter(e.target.value)}
+                  className="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                >
+                  <option value="">Cualquier edad</option>
+                  <option value="18-25">18-25 años</option>
+                  <option value="26-35">26-35 años</option>
+                  <option value="36-45">36-45 años</option>
+                  <option value="46+">46+ años</option>
+                </select>
+              </div>
+
+              <button
+                onClick={handleStartChat}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                🚀 Comenzar Chat
+              </button>
+            </div>
           </div>
 
-          {/* Botones de funcionalidades sociales */}
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <button 
-              onClick={() => setShowStats(true)}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-full text-sm transition-colors"
-            >
-              📊 Mis Estadísticas
-            </button>
-            
-            <button 
-              onClick={shareApp}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-full text-sm transition-colors"
-            >
-              📤 Compartir App
-            </button>
-            
-            <button 
-              onClick={() => window.open('https://github.com', '_blank')}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-full text-sm transition-colors"
-            >
-              ⭐ Dar Feedback
-            </button>
-          </div>
-
-          {/* Información adicional */}
-          <div className="mt-8 text-sm text-gray-500 max-w-lg">
-            <p className="mb-2">
-              💡 <strong>Consejo:</strong> Añade intereses específicos para encontrar personas con gustos similares.
-            </p>
-            <p className="mb-2">
-              🔒 <strong>Privacidad:</strong> Tus conversaciones son privadas y no se graban.
-            </p>
-            <p className="mb-2">
-              🛡️ <strong>Seguridad:</strong> Usa el filtro de edad para una experiencia más segura.
-            </p>
-            <p>
-              🌍 <strong>Global:</strong> Conecta con personas de todo el mundo.
+          <div className="text-center text-gray-300 text-sm">
+            <p>Al hacer clic en &quot;Comenzar Chat&quot;, aceptas nuestros términos de servicio y política de privacidad.</p>
+            <p className="mt-2">
+              <span className="text-green-400">✓</span> Conexiones seguras
+              <span className="mx-2">•</span>
+              <span className="text-green-400">✓</span> Sin registro requerido
+              <span className="mx-2">•</span>
+              <span className="text-green-400">✓</span> Totalmente gratuito
             </p>
           </div>
-        </>
-      )}
-
-      {/* Modal de estadísticas */}
-      <Stats isVisible={showStats} onClose={() => setShowStats(false)} />
-    </main>
+        </div>
+      </div>
+    </div>
   );
 } 

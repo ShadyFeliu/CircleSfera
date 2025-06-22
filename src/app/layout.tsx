@@ -1,36 +1,51 @@
-import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import "./main.css";
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './main.css'
+import { ThemeProvider } from '../components/ThemeProvider'
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Script from "next/script";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "CircleSfera - Chat de Video Aleatorio",
-  description: "Chatea con gente de todo el mundo en CircleSfera",
-  keywords: "chat, video chat, random chat, anonymous chat",
-  authors: [{ name: "CircleSfera Team" }],
-  robots: "index, follow",
-};
-
-export const viewport: Viewport = {
-  themeColor: "#1a1a1a",
-  width: "device-width",
-  initialScale: 1.0,
-};
+  title: 'CircleSfera - Conecta con el Mundo',
+  description: 'Plataforma de videochat aleatorio para conectar con personas de todo el mundo',
+  keywords: 'videochat, chat aleatorio, conectar, social, webcam',
+  authors: [{ name: 'CircleSfera Team' }],
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
+  robots: 'index, follow',
+  openGraph: {
+    title: 'CircleSfera - Conecta con el Mundo',
+    description: 'Plataforma de videochat aleatorio para conectar con personas de todo el mundo',
+    type: 'website',
+    locale: 'es_ES',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CircleSfera - Conecta con el Mundo',
+    description: 'Plataforma de videochat aleatorio para conectar con personas de todo el mundo',
+  }
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#3b82f6" />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.json" />
+      </head>
       <body className={inter.className}>
+        <ThemeProvider>
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
+        </ThemeProvider>
         
         {/* Error Monitoring */}
         <Script
@@ -98,5 +113,5 @@ export default function RootLayout({
         />
       </body>
     </html>
-  );
+  )
 }

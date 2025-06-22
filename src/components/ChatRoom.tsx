@@ -6,6 +6,12 @@ import io, { Socket } from "socket.io-client";
 import Peer from "simple-peer";
 import ScreenRecorder from "./ScreenRecorder";
 import { useUserStats } from "@/hooks/useUserStats";
+import { useTheme } from "./ThemeProvider";
+import { ThemeSettings } from "./ThemeSettings";
+import { UserDashboard } from "./UserDashboard";
+import { AdvancedPreferences } from "./AdvancedPreferences";
+import { SocialSharing } from "./SocialSharing";
+import { EnhancedWebRTC } from "./EnhancedWebRTC";
 import Image from "next/image";
 
 type Message = {
@@ -34,6 +40,24 @@ type ConnectionError = {
   message: string;
   code?: string;
   reconnectable?: boolean;
+};
+
+type UserPreferences = {
+  language: string[];
+  country: string[];
+  ageRange: {
+    min: number;
+    max: number;
+  };
+  interests: string[];
+  gender: 'any' | 'male' | 'female' | 'other';
+  connectionType: 'video' | 'audio' | 'both';
+  timezone: string;
+  notificationSettings: {
+    newMatches: boolean;
+    connectionQuality: boolean;
+    achievements: boolean;
+  };
 };
 
 // WebRTC configuration
@@ -78,6 +102,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     addInterest,
     addCountry
   } = useUserStats();
+
+  // Theme hook
+  const { toggleTheme, colorScheme } = useTheme();
+  
   const [myFilter, setMyFilter] = useState("");
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(0);
@@ -88,7 +116,15 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showScreenRecorder, setShowScreenRecorder] = useState(false);
-  const [connectionQuality, setConnectionQuality] = useState<"good" | "fair" | "poor">("good");
+  const [connectionQuality, setConnectionQuality] = useState<"excellent" | "good" | "poor">("good");
+
+  // Nuevas funcionalidades
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
+  const [showSocialSharing, setShowSocialSharing] = useState(false);
+  const [useEnhancedWebRTC, setUseEnhancedWebRTC] = useState(false);
+  const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
 
   const myVideo = useRef<HTMLVideoElement>(null);
   const partnerVideo = useRef<HTMLVideoElement>(null);
@@ -102,6 +138,14 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   // Emojis disponibles
   const emojis = ["😀", "😂", "😍", "🤔", "👍", "👎", "❤️", "🔥", "🎉", "😎", "🤣", "😭", "😱", "😴", "🤗", "😇"];
+
+  // Cargar preferencias del usuario
+  useEffect(() => {
+    const savedPreferences = localStorage.getItem('circlesfera_preferences');
+    if (savedPreferences) {
+      setUserPreferences(JSON.parse(savedPreferences));
+    }
+  }, []);
 
   const startNewChat = useCallback(() => {
     if (socketRef.current?.connected) {
@@ -129,7 +173,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     }
     
     // Resetear calidad de conexión a neutral
-    setConnectionQuality("fair");
+    setConnectionQuality("good");
     
     setMessages([]);
     setStatus("Buscando un compañero...");
@@ -223,7 +267,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
     const onUserCount = (count: number) => {
       if (isComponentMounted) {
-        setOnlineUsers(count);
+      setOnlineUsers(count);
         console.log('[Users] Contador actualizado:', count);
         
         // Mostrar información especial cuando hay exactamente 2 personas
@@ -322,7 +366,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               handleNextChat();
             }
           }, CONNECTION_TIMEOUT);
-          
+
           signalingTimeout = setTimeout(() => {
             if (!peer.connected && isComponentMounted) {
               console.warn('[WebRTC] Signaling timeout. Destruyendo peer.');
@@ -330,7 +374,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               handleNextChat();
             }
           }, SIGNALING_TIMEOUT);
-          
+
           peer.on('connect', () => {
             if (!isComponentMounted) return;
             
@@ -352,13 +396,13 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             markIntentionalDisconnectRef.current = markIntentionalDisconnect;
             console.log('[WebRTC] Peer conectado');
           });
-          
+
           peer.on('signal', (signal) => {
             if (socketRef.current?.connected) {
               socketRef.current.emit("signal", { to: partnerID, signal });
             }
           });
-          
+
           peer.on('stream', (partnerStream) => {
             if (!isComponentMounted) return;
             
@@ -374,8 +418,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             try {
               const parsed: DataType = JSON.parse(data.toString());
               if (parsed.type === "chat") {
-                const message: Message = {
-                  author: "partner",
+                const message: Message = { 
+                  author: "partner", 
                   text: parsed.text,
                   timestamp: new Date(),
                   type: parsed.messageType || "text",
@@ -395,7 +439,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               console.error("Dato recibido no es JSON válido:", e);
             }
           });
-          
+
           peer.on('close', () => {
             if (!isComponentMounted) return;
             
@@ -407,9 +451,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               markIntentionalDisconnectRef.current();
             }
             
-            setStatus("Tu compañero se ha desconectado.");
-            setConnectionStatus("disconnected");
-            setConnectionQuality("fair"); // Resetear a neutral, no a mala
+             setStatus("Tu compañero se ha desconectado.");
+             setConnectionStatus("disconnected");
+            setConnectionQuality("good"); // Resetear a neutral, no a mala
             
             if (partnerVideo.current) {
               partnerVideo.current.srcObject = null;
@@ -418,7 +462,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             console.log('[WebRTC] Peer cerrado - desconexión normal');
           });
           
-          peer.on('error', (err) => {
+          peer.on('error', (err) => { 
             if (!isComponentMounted) return;
             
             clearTimeout(connectionTimeout);
@@ -431,11 +475,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               err.message.includes('connection') ||
               err.message.includes('network')
             )) {
-              handlePeerError(err);
+            handlePeerError(err);
             } else {
               // Para errores menores, solo log y continuar
               console.warn('[WebRTC] Error menor en peer:', err.message);
-              setConnectionQuality("fair");
+              setConnectionQuality("good");
             }
           });
         };
@@ -455,7 +499,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         socket.on("partner_disconnected", () => {
           if (!isComponentMounted) return;
           
-          setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
+            setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
           if(peerRef.current) {
             peerRef.current.destroy();
             peerRef.current = undefined;
@@ -466,20 +510,20 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         socket.on("partner_muted", (muted: boolean) => {
           if (isComponentMounted) {
-            setIsPartnerMuted(muted);
+          setIsPartnerMuted(muted);
           }
         });
 
         socket.on("partner_video_off", (videoOff: boolean) => {
           if (isComponentMounted) {
-            setIsPartnerVideoOff(videoOff);
+          setIsPartnerVideoOff(videoOff);
           }
         });
       })
       .catch(err => {
         console.error("Error al obtener media:", err);
         if (isComponentMounted) {
-          setStatus("No se pudo acceder a la cámara o micrófono.");
+        setStatus("No se pudo acceder a la cámara o micrófono.");
         }
       });
 
@@ -521,7 +565,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     if (peer.connected) {
       setConnectionQuality("good");
     } else {
-      setConnectionQuality("fair");
+      setConnectionQuality("good");
     }
 
     // Configurar intervalos para monitorear la calidad solo si está conectado
@@ -529,7 +573,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       if (peer.connected) {
         setConnectionQuality("good");
       } else if (!peer.destroyed) {
-        setConnectionQuality("fair");
+        setConnectionQuality("good");
       }
       // No cambiamos a "poor" automáticamente para evitar falsos positivos
     }, 10000); // Aumentar intervalo a 10 segundos
@@ -540,10 +584,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       // Solo marcar como mala si no fue intencional
       if (!isIntentionalDisconnect) {
         // Para desconexiones normales, mantener neutral en lugar de mala
-        setConnectionQuality("fair");
-      }
-    });
-
+        setConnectionQuality("good");
+              }
+            });
+            
     peer.on('connect', () => {
       setConnectionQuality("good");
     });
@@ -556,11 +600,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         err.message.includes('connection') ||
         err.message.includes('network')
       )) {
-        setConnectionQuality("poor");
-      } else {
+              setConnectionQuality("poor");
+            } else {
         // Para errores menores, mantener neutral
-        setConnectionQuality("fair");
-      }
+              setConnectionQuality("good");
+            }
     });
     
     // Retornar función para marcar desconexión intencional
@@ -570,7 +614,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   // Handle WebRTC peer errors
   const handlePeerError = (error: Error) => {
     console.error('Peer error:', error);
-    setConnectionError({ 
+    setConnectionError({
       message: 'Error en la conexión de video. Intentando reconectar...', 
       reconnectable: true 
     });
@@ -580,7 +624,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const sendData = (data: DataType) => {
     if (peerRef.current && peerRef.current.connected) {
       peerRef.current.send(JSON.stringify(data));
-    }
+  }
   };
 
   const playNotificationSound = () => {
@@ -602,7 +646,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     
     if (message.trim()) {
       const newMessage: Message = {
-        author: "me",
+        author: "me", 
         text: message,
         timestamp: new Date(),
         type: "text"
@@ -616,7 +660,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   const handleSendEmoji = (emoji: string) => {
     const newMessage: Message = {
-      author: "me",
+      author: "me", 
       text: emoji,
       timestamp: new Date(),
       type: "text"
@@ -634,7 +678,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       reader.onload = (event: ProgressEvent<FileReader>) => {
         const imageUrl = event.target?.result as string;
         const newMessage: Message = {
-          author: "me",
+          author: "me", 
           text: "Imagen enviada",
           timestamp: new Date(),
           type: "image",
@@ -655,7 +699,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       sendData({ type: "typing", value: false });
     }, 2000);
   };
-
+  
   // Error message component
   const ConnectionErrorMessage = () => (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
@@ -748,8 +792,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           {/* Indicador de calidad de conexión - responsive */}
           <div className="absolute top-8 lg:top-12 right-2 lg:right-4 bg-black bg-opacity-50 text-white p-1 lg:p-2 rounded connection-indicator z-10">
             <div className="flex items-center space-x-1">
-              <div className={`w-1 lg:w-2 h-1 lg:h-2 rounded-full ${connectionQuality === 'good' ? 'bg-green-500' : connectionQuality === 'fair' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-              <span className="text-xs hidden sm:inline">{connectionQuality === 'good' ? 'Buena' : connectionQuality === 'fair' ? 'Regular' : 'Mala'} conexión</span>
+              <div className={`w-1 lg:w-2 h-1 lg:h-2 rounded-full ${connectionQuality === 'excellent' ? 'bg-green-500' : connectionQuality === 'good' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+              <span className="text-xs hidden sm:inline">{connectionQuality === 'excellent' ? 'Excelente' : connectionQuality === 'good' ? 'Buena' : 'Mala'} conexión</span>
             </div>
           </div>
 
@@ -799,6 +843,49 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             Siguiente
           </button>
 
+          {/* Nuevas funcionalidades */}
+          <button 
+            onClick={() => setShowThemeSettings(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors"
+            title="Personalizar tema"
+          >
+            🎨
+          </button>
+
+          <button 
+            onClick={() => setShowDashboard(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors"
+            title="Mi Dashboard"
+          >
+            📊
+          </button>
+
+          <button 
+            onClick={() => setShowPreferences(true)}
+            className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors"
+            title="Preferencias"
+          >
+            ⚙️
+          </button>
+
+          <button 
+            onClick={() => setShowSocialSharing(true)}
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors"
+            title="Compartir"
+          >
+            📤
+          </button>
+
+          <button 
+            onClick={() => setUseEnhancedWebRTC(!useEnhancedWebRTC)}
+            className={`font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors ${
+              useEnhancedWebRTC ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-600 hover:bg-gray-700'
+            } text-white`}
+            title="WebRTC Avanzado"
+          >
+            ⚡
+          </button>
+
           <button 
             onClick={() => setShowReportModal(true)} 
             className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors"
@@ -807,7 +894,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           </button>
 
           <button 
-            onClick={() => setShowScreenRecorder(!showScreenRecorder)}
+            onClick={() => setShowScreenRecorder(!showScreenRecorder)} 
             disabled={connectionStatus !== 'connected'}
             className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 lg:py-2 px-2 lg:px-4 rounded-full text-xs lg:text-sm transition-colors"
           >
@@ -903,11 +990,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         {/* Formulario de mensaje - responsive */}
         <form onSubmit={handleSendMessage} className="flex space-x-1 lg:space-x-2">
-          <input
+          <input 
             ref={messageInputRef}
             type="text"
-            name="message"
-            placeholder="Escribe un mensaje..."
+            name="message" 
+            placeholder="Escribe un mensaje..." 
             onInput={handleTyping}
             className="flex-1 bg-gray-700 text-white px-2 lg:px-3 py-1 lg:py-2 rounded text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -927,21 +1014,97 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             <h3 className="text-lg lg:text-xl font-bold mb-4">Reportar Usuario</h3>
             <div className="space-y-2">
               {["Contenido inapropiado", "Comportamiento abusivo", "Spam", "Otro"].map((reason) => (
-                <button
+              <button 
                   key={reason}
                   onClick={() => reportUser(reason)}
                   className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
-                >
+              >
                   {reason}
-                </button>
+              </button>
               ))}
             </div>
-            <button
+              <button 
               onClick={() => setShowReportModal(false)}
               className="w-full mt-4 bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
-            >
+              >
               Cancelar
-            </button>
+              </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modales de nuevas funcionalidades */}
+      <ThemeSettings 
+        isOpen={showThemeSettings} 
+        onClose={() => setShowThemeSettings(false)} 
+      />
+
+      {showDashboard && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <UserDashboard />
+              <button 
+            onClick={() => setShowDashboard(false)}
+            className="fixed top-4 right-4 bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full z-50"
+              >
+            ✕
+              </button>
+        </div>
+      )}
+
+      <AdvancedPreferences 
+        isOpen={showPreferences} 
+        onClose={() => setShowPreferences(false)}
+        onSave={(preferences) => {
+          setUserPreferences(preferences);
+          console.log('Preferencias guardadas:', preferences);
+        }}
+      />
+
+      <SocialSharing 
+        isOpen={showSocialSharing} 
+        onClose={() => setShowSocialSharing(false)}
+        shareData={{
+          title: 'CircleSfera - Conecta con el Mundo',
+          description: '¡Acabo de tener una gran conversación en CircleSfera! Únete y conoce personas increíbles.',
+          url: 'https://circlesfera.vercel.app',
+          image: '/og-image.jpg'
+        }}
+      />
+
+      {/* WebRTC Mejorado */}
+      {useEnhancedWebRTC && myStreamRef.current && (
+        <div className="fixed inset-0 z-40 bg-black bg-opacity-75 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                WebRTC Avanzado
+              </h2>
+              <button 
+                onClick={() => setUseEnhancedWebRTC(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <EnhancedWebRTC
+                stream={myStreamRef.current}
+                onStream={(stream) => {
+                  if (partnerVideo.current) {
+                    partnerVideo.current.srcObject = stream;
+                  }
+                }}
+                onConnectionChange={(connected) => {
+                  setConnectionStatus(connected ? 'connected' : 'disconnected');
+                }}
+                onQualityChange={(quality) => {
+                  setConnectionQuality(quality);
+                }}
+                isInitiator={false}
+                signalData={null}
+                onSignal={() => {}}
+              />
+            </div>
           </div>
         </div>
       )}

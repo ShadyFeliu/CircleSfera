@@ -1,6 +1,23 @@
+import '../../../jest.setup.js';
 import { render, fireEvent, waitFor } from '@testing-library/react';
 import ChatRoom from '../ChatRoom';
+import { ThemeProvider } from '../ThemeProvider';
 import '@testing-library/jest-dom';
+
+// Mock robusto de socket.io-client para todos los tests de este archivo
+jest.mock('socket.io-client', () => {
+  return {
+    __esModule: true,
+    default: jest.fn(() => ({
+      on: jest.fn(),
+      off: jest.fn(),
+      emit: jest.fn(),
+      connected: true,
+      disconnect: jest.fn(),
+      connect: jest.fn()
+    }))
+  };
+});
 
 // Mock robusto de MediaStream
 const mockMediaStream = {
@@ -20,16 +37,6 @@ const mockMediaStream = {
   id: 'mock-stream-id'
 };
 
-// Mock básico de Socket.IO
-jest.mock('socket.io-client', () => {
-  return () => ({
-    emit: () => {},
-    on: () => {},
-    disconnect: () => {},
-    connect: () => {}
-  });
-});
-
 // Mock básico de simple-peer
 jest.mock('simple-peer', () => {
   return () => ({
@@ -48,6 +55,15 @@ Object.defineProperty(global.navigator, 'mediaDevices', {
   writable: true
 });
 
+// Wrapper con ThemeProvider
+const renderWithTheme = (component: React.ReactElement) => {
+  return render(
+    <ThemeProvider>
+      {component}
+    </ThemeProvider>
+  );
+};
+
 describe('ChatRoom', () => {
   const defaultProps = {
     interests: 'música,programación',
@@ -55,16 +71,16 @@ describe('ChatRoom', () => {
   };
 
   it('renders without crashing', () => {
-    expect(() => render(<ChatRoom {...defaultProps} />)).not.toThrow();
+    expect(() => renderWithTheme(<ChatRoom {...defaultProps} />)).not.toThrow();
   });
 
   it('accepts props correctly', () => {
-    const { container } = render(<ChatRoom {...defaultProps} />);
+    const { container } = renderWithTheme(<ChatRoom {...defaultProps} />);
     expect(container).toBeInTheDocument();
   });
 
   it('has correct component structure', () => {
-    const { container } = render(<ChatRoom {...defaultProps} />);
+    const { container } = renderWithTheme(<ChatRoom {...defaultProps} />);
     expect(container.firstChild).toBeInTheDocument();
   });
 
