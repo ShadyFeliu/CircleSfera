@@ -924,7 +924,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, []);
 
   return (
-    <div className="w-full min-h-screen flex flex-col md:flex-row gap-4 md:gap-8 p-2 sm:p-4 md:p-8 bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
+    <div className="w-full min-h-screen flex flex-col md:flex-row gap-4 md:gap-8 p-2 sm:p-4 md:p-8 bg-gray-900">
       <div className="flex-1 flex flex-col gap-4">
         <div className="w-full h-[60vh] lg:h-[70vh] bg-gradient-to-br from-black to-gray-900 rounded-2xl overflow-hidden relative video-container shadow-2xl border border-gray-700">
           <video 
