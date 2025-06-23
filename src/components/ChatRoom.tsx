@@ -69,16 +69,16 @@ const ICE_SERVERS = {
         'stun:stun1.l.google.com:19302',
       ],
     },
-    // Si quieres reintroducir TURN, descomenta y configura aquí
-    // {
-    //   urls: [
-    //     'turn:relay.metered.ca:80',
-    //     'turn:relay.metered.ca:443',
-    //     'turns:relay.metered.ca:443?transport=tcp',
-    //   ],
-    //   username: 'openrelayproject',
-    //   credential: 'openrelayproject',
-    // },
+    // Servidores TURN públicos activados para compatibilidad móvil
+    {
+      urls: [
+        'turn:relay.metered.ca:80',
+        'turn:relay.metered.ca:443',
+        'turns:relay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
   iceCandidatePoolSize: 10,
 };
@@ -380,8 +380,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           }, SIGNALING_TIMEOUT);
 
           peer.on('connect', () => {
-            if (!isComponentMounted) return;
-            
+            console.log('[WebRTC] Peer conectado');
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             setStatus("Conectado");
@@ -395,34 +394,70 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               });
             }
             
-            // Monitor calidad
             const markIntentionalDisconnect = monitorConnectionQuality(peer);
             markIntentionalDisconnectRef.current = markIntentionalDisconnect;
-            console.log('[WebRTC] Peer conectado');
           });
 
           peer.on('signal', (signal) => {
+            console.log('[WebRTC] Señal generada:', signal);
             if (socketRef.current?.connected) {
               socketRef.current.emit("signal", { to: partnerID, signal });
             }
           });
 
           peer.on('stream', (partnerStream) => {
+            console.log('[WebRTC] Stream de compañero recibido:', partnerStream);
             if (!isComponentMounted) return;
-            
-            // Guardar el stream del compañero en el estado
             setPartnerStreamRef(partnerStream);
-            
-            // Solo asignar al video principal si no está activo el WebRTC Avanzado
             if (partnerVideo.current && !useEnhancedWebRTC) {
               partnerVideo.current.srcObject = partnerStream;
             }
-            console.log('[WebRTC] Stream de compañero recibido');
           });
-          
+
+          peer.on('iceStateChange', (state) => {
+            console.log('[WebRTC] ICE state change:', state);
+          });
+
+          peer.on('iceCandidate', (candidate) => {
+            console.log('[WebRTC] ICE candidate:', candidate);
+          });
+
+          peer.on('close', () => {
+            console.log('[WebRTC] Peer cerrado');
+            clearTimeout(connectionTimeout);
+            clearTimeout(signalingTimeout);
+            if (markIntentionalDisconnectRef.current) {
+              markIntentionalDisconnectRef.current();
+            }
+            setStatus("Tu compañero se ha desconectado.");
+            setConnectionStatus("disconnected");
+            setConnectionQuality("good");
+            if (partnerVideo.current) {
+              partnerVideo.current.srcObject = null;
+            }
+            setPartnerStreamRef(null);
+            addCountry(["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"][Math.floor(Math.random() * 6)]);
+          });
+
+          peer.on('error', (err) => {
+            console.error('[WebRTC] Error en Peer:', err);
+            clearTimeout(connectionTimeout);
+            clearTimeout(signalingTimeout);
+            if (err.message && (
+              err.message.includes('ICE') || 
+              err.message.includes('connection') ||
+              err.message.includes('network')
+            )) {
+              handlePeerError(err);
+            } else {
+              console.warn('[WebRTC] Error menor en peer:', err.message);
+              setConnectionQuality("good");
+            }
+          });
+
           peer.on('data', (data) => {
+            console.log('[WebRTC] Data recibida:', data);
             if (!isComponentMounted) return;
-            
             try {
               const parsed: DataType = JSON.parse(data.toString());
               if (parsed.type === "chat") {
@@ -445,50 +480,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               }
             } catch (e) {
               console.error("Dato recibido no es JSON válido:", e);
-            }
-          });
-
-          peer.on('close', () => {
-            if (!isComponentMounted) return;
-            
-            clearTimeout(connectionTimeout);
-            clearTimeout(signalingTimeout);
-            
-            // Marcar como desconexión normal, no como error
-            if (markIntentionalDisconnectRef.current) {
-              markIntentionalDisconnectRef.current();
-            }
-            
-             setStatus("Tu compañero se ha desconectado.");
-             setConnectionStatus("disconnected");
-            setConnectionQuality("good"); // Resetear a neutral, no a mala
-            
-            if (partnerVideo.current) {
-              partnerVideo.current.srcObject = null;
-            }
-            setPartnerStreamRef(null);
-            addCountry(["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"][Math.floor(Math.random() * 6)]);
-            console.log('[WebRTC] Peer cerrado - desconexión normal');
-          });
-          
-          peer.on('error', (err) => { 
-            if (!isComponentMounted) return;
-            
-            clearTimeout(connectionTimeout);
-            clearTimeout(signalingTimeout);
-            console.error('[WebRTC] Error en Peer:', err);
-            
-            // Solo marcar como error si es un error crítico
-            if (err.message && (
-              err.message.includes('ICE') || 
-              err.message.includes('connection') ||
-              err.message.includes('network')
-            )) {
-            handlePeerError(err);
-            } else {
-              // Para errores menores, solo log y continuar
-              console.warn('[WebRTC] Error menor en peer:', err.message);
-              setConnectionQuality("good");
             }
           });
         };
