@@ -4,6 +4,7 @@ import './main.css'
 import { ThemeProvider } from '../components/ThemeProvider'
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Script from "next/script";
+import SocketStatus from "@/components/SocketStatus";
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -12,7 +13,6 @@ export const metadata: Metadata = {
   description: 'Plataforma de videochat aleatorio para conectar con personas de todo el mundo',
   keywords: 'videochat, chat aleatorio, conectar, social, webcam',
   authors: [{ name: 'CircleSfera Team' }],
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
   robots: 'index, follow',
   openGraph: {
     title: 'CircleSfera - Conecta con el Mundo',
@@ -26,6 +26,13 @@ export const metadata: Metadata = {
     description: 'Plataforma de videochat aleatorio para conectar con personas de todo el mundo',
   }
 }
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: 'no',
+};
 
 export default function RootLayout({
   children,
@@ -52,11 +59,12 @@ export default function RootLayout({
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
+        <SocketStatus />
         {/* Botón flotante de acceso a la guía de estilos */}
         <a
           href="/styleguide"
           target="_self"
-          className="fixed z-50 bottom-6 right-6 bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 text-white font-bold px-5 py-3 rounded-full shadow-lg opacity-80 hover:opacity-100 transition-all text-sm md:text-base"
+          className="fixed z-50 bottom-6 left-6 md:left-auto md:right-6 bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 text-white font-bold px-4 py-2 md:px-5 md:py-3 rounded-full shadow-lg opacity-80 hover:opacity-100 transition-all text-xs md:text-base"
           style={{textDecoration: 'none'}}
         >
           🎨 Guía de Estilos

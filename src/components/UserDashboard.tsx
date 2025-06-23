@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useUserStats } from '../hooks/useUserStats';
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
 
 interface DashboardStats {
   totalConnections: number;
@@ -22,7 +24,19 @@ interface DashboardStats {
 
 type DashboardTab = 'overview' | 'analytics' | 'achievements';
 
-export const UserDashboard: React.FC = () => {
+const UserDashboard = dynamic(() => import("./UserDashboard"));
+const EnhancedWebRTC = dynamic(() => import("./EnhancedWebRTC"));
+
+type WebRTCMetrics = {
+  [key: string]: {
+    avgValue: number;
+    goodCount: number;
+    poorCount: number;
+    count: number;
+  };
+};
+
+const UserDashboardComponent: React.FC = () => {
   const { stats } = useUserStats();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalConnections: 0,
@@ -38,6 +52,24 @@ export const UserDashboard: React.FC = () => {
   });
 
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+
+  // Estado para métricas WebRTC
+  const [webrtcMetrics, setWebrtcMetrics] = useState<WebRTCMetrics | null>(null);
+
+  const [username, setUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Intentar obtener el username del usuario autenticado desde localStorage
+    const userData = localStorage.getItem('circleSfera_user');
+    if (userData) {
+      try {
+        const parsed = JSON.parse(userData);
+        setUsername(parsed.username || null);
+      } catch {
+        setUsername(null);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Simular datos del dashboard (en producción vendrían del backend)
@@ -55,6 +87,14 @@ export const UserDashboard: React.FC = () => {
     };
     setDashboardStats(mockStats);
   }, [stats]);
+
+  useEffect(() => {
+    // Cargar métricas agregadas del backend
+    fetch('/api/metrics')
+      .then(res => res.json())
+      .then(data => setWebrtcMetrics(data.byMetric))
+      .catch(() => setWebrtcMetrics(null));
+  }, []);
 
   const formatTime = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
@@ -101,6 +141,20 @@ export const UserDashboard: React.FC = () => {
             <div className="text-sm">Última actualización:</div>
             <div className="font-medium">{new Date().toLocaleString('es-ES')}</div>
           </div>
+        </div>
+
+        <div className="flex justify-end mb-4">
+          {username ? (
+            <a
+              href={`/@${username}`}
+              className="bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white font-bold py-2 px-6 rounded-xl text-base transition-all duration-200 hover:scale-105 shadow-lg border border-blue-500"
+              title="Ver mi perfil"
+            >
+              👤 Mi Perfil
+            </a>
+          ) : (
+            <span className="text-gray-400 text-sm">Configura tu usuario para acceder a tu perfil</span>
+          )}
         </div>
 
         {/* Tabs */}
@@ -390,6 +444,41 @@ export const UserDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Métricas WebRTC Globales */}
+            <div className="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700 shadow-xl">
+              <h3 className="text-2xl font-bold mb-6 text-white flex items-center">
+                📡 Métricas WebRTC Globales
+              </h3>
+              {!webrtcMetrics ? (
+                <div className="text-gray-400">Cargando métricas...</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {['WebRTC_RTT', 'WebRTC_PacketLoss', 'WebRTC_Bitrate'].map((key) => (
+                    <div key={key} className="bg-gray-900 rounded-xl p-4 border border-gray-700 flex flex-col gap-2">
+                      <div className="text-lg font-bold text-white mb-1">
+                        {key === 'WebRTC_RTT' && 'RTT (ms)'}
+                        {key === 'WebRTC_PacketLoss' && 'Pérdida de Paquetes'}
+                        {key === 'WebRTC_Bitrate' && 'Bitrate (kbps)'}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-mono text-blue-400">{webrtcMetrics[key]?.avgValue ? (key === 'WebRTC_Bitrate' ? (webrtcMetrics[key].avgValue/1000).toFixed(0) : webrtcMetrics[key].avgValue.toFixed(1)) : '-'}</span>
+                        <span className="text-xs text-gray-400">{key === 'WebRTC_Bitrate' ? 'kbps' : key === 'WebRTC_RTT' ? 'ms' : ''}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-green-700/80 text-white">Good: {webrtcMetrics[key]?.goodCount || 0}</span>
+                        <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-red-700/80 text-white">Poor: {webrtcMetrics[key]?.poorCount || 0}</span>
+                        <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-gray-700/80 text-white">Muestras: {webrtcMetrics[key]?.count || 0}</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-700 rounded mt-2 overflow-hidden">
+                        <div className="h-2 bg-green-500" style={{ width: `${webrtcMetrics[key]?.goodCount && webrtcMetrics[key]?.count ? (webrtcMetrics[key].goodCount / webrtcMetrics[key].count) * 100 : 0}%` }}></div>
+                        <div className="h-2 bg-red-500" style={{ width: `${webrtcMetrics[key]?.poorCount && webrtcMetrics[key]?.count ? (webrtcMetrics[key].poorCount / webrtcMetrics[key].count) * 100 : 0}%`, marginLeft: `${webrtcMetrics[key]?.goodCount && webrtcMetrics[key]?.count ? (webrtcMetrics[key].goodCount / webrtcMetrics[key].count) * 100 : 0}%` }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -532,4 +621,6 @@ export const UserDashboard: React.FC = () => {
       </div>
     </div>
   );
-}; 
+};
+
+export default UserDashboardComponent; 

@@ -2,6 +2,8 @@
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import Peer from 'simple-peer';
+import { useWebRTC } from "@/hooks/useWebRTC";
+import Image from 'next/image';
 
 interface EnhancedWebRTCProps {
   stream: MediaStream | null;
@@ -22,7 +24,7 @@ interface VideoFilter {
   icon: string;
 }
 
-export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
+const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
   stream,
   partnerStream,
   onStream,
@@ -86,30 +88,49 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
     iceCandidatePoolSize: 10
   }), []);
 
-  // Inicializar WebRTC
+  // Hook WebRTC
+  const {
+    status: rtcStatus,
+    error: rtcError,
+    remoteStream: rtcRemoteStream,
+    metrics: rtcMetrics,
+    createPeer,
+    signal: sendSignal,
+    destroy: destroyPeer,
+    peer,
+  } = useWebRTC({
+    initiator: isInitiator,
+    stream,
+    iceServers: rtcConfig.iceServers,
+    onSignal,
+    onError: () => {},
+    onQualityChange,
+  });
+
+  // Sincronizar stream remoto
   useEffect(() => {
-    if (!stream) return;
-
-    // Asegurar que el stream local se asigne solo una vez
-    if (localVideoRef.current && !localVideoRef.current.srcObject) {
-      localVideoRef.current.srcObject = stream;
+    if (rtcRemoteStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = rtcRemoteStream;
+      onStream(rtcRemoteStream);
     }
+  }, [rtcRemoteStream, onStream]);
 
-    // Asignar el stream del compañero directamente si está disponible
-    if (partnerStream && remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = partnerStream;
+  // Crear peer al montar si es iniciador
+  useEffect(() => {
+    if (isInitiator && stream) {
+      createPeer();
     }
+    return () => {
+      destroyPeer();
+    };
+  }, [isInitiator, stream, createPeer, destroyPeer]);
 
-    // No crear una nueva conexión WebRTC aquí, solo mostrar los streams existentes
-    console.log('WebRTC Avanzado: Mostrando streams existentes');
-  }, [stream, partnerStream]);
-
-  // Manejar señales entrantes - no necesario si no creamos nueva conexión
-  // useEffect(() => {
-  //   if (peerRef.current && signalData) {
-  //     peerRef.current.signal(signalData);
-  //   }
-  // }, [signalData]);
+  // Señalización entrante
+  useEffect(() => {
+    if (signalData) {
+      sendSignal(signalData);
+    }
+  }, [signalData, sendSignal]);
 
   // Aplicar filtro al video local
   useEffect(() => {
@@ -235,6 +256,41 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
     } catch {}
   };
 
+  // Feedback visual de calidad y métricas
+  const renderQualityBadge = () => {
+    let color = 'bg-gray-500';
+    let text = 'Desconocida';
+    if (rtcStatus === 'connected') {
+      if (rtcMetrics.rtt < 100 && rtcMetrics.packetsLost < 5) {
+        color = 'bg-green-600'; text = 'Excelente';
+      } else if (rtcMetrics.rtt > 300 || rtcMetrics.packetsLost > 20) {
+        color = 'bg-red-600'; text = 'Mala';
+      } else {
+        color = 'bg-yellow-500'; text = 'Buena';
+      }
+    } else if (rtcStatus === 'connecting') {
+      color = 'bg-yellow-500'; text = 'Conectando...';
+    } else if (rtcStatus === 'error') {
+      color = 'bg-red-600'; text = 'Error';
+    }
+    return (
+      <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white shadow ${color} transition-all duration-200 hover:scale-105 active:scale-95`}>
+        <span className="mr-2">🔗</span>{text}
+      </div>
+    );
+  };
+
+  const renderMetrics = () => (
+    <div className="flex flex-col gap-1 text-xs text-gray-200 bg-gray-900/80 rounded-lg px-3 py-2 mt-2 shadow-lg border border-gray-700 w-fit transition-all duration-200 hover:scale-105 active:scale-95">
+      <div>RTT: <span className="font-mono">{Math.round(rtcMetrics.rtt)} ms</span></div>
+      <div>Pérdida: <span className="font-mono">{rtcMetrics.packetsLost}</span></div>
+      <div>Bitrate: <span className="font-mono">{(rtcMetrics.bitrate/1000).toFixed(0)} kbps</span></div>
+    </div>
+  );
+
+  // Animación de entrada para mensajes (si aplica en este componente)
+  const messageAnimation = "animate-fade-in-up transition-all duration-300";
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-[#232526]/90 to-[#414345]/90 backdrop-blur-md">
       <div className="relative w-full max-w-4xl mx-auto rounded-3xl shadow-2xl border border-gray-700 bg-gray-900/95 text-white animate-fade-in-up p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -265,7 +321,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
             <div className="bg-gray-800/80 rounded-2xl overflow-hidden relative border-2 border-green-700/40 shadow-lg">
               <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-56 md:h-64 object-cover transition-all duration-300" />
               <div className="absolute top-2 left-2 bg-green-700/80 px-3 py-1 rounded-lg text-xs font-semibold shadow">Compañero</div>
-              {!partnerStream && (
+              {!rtcRemoteStream && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
                   <div className="flex items-center space-x-2 text-yellow-400">
                     <div className="w-3 h-3 rounded-full bg-yellow-400 animate-pulse"></div>
@@ -280,7 +336,18 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
               <div className="flex flex-col items-center mt-4 gap-2">
                 {lastScreenshot && (
                   <div className="flex flex-col items-center">
-                    <img src={lastScreenshot} alt="Última captura" className="w-32 h-20 object-cover rounded-lg border-2 border-blue-400 mb-1" />
+                    <Image
+                      src={lastScreenshot}
+                      alt="Última captura"
+                      width={160}
+                      height={100}
+                      className="w-32 h-20 object-cover rounded-lg border-2 border-blue-400 mb-1"
+                      loading="lazy"
+                      sizes="(max-width: 600px) 100vw, 160px"
+                      style={{ objectFit: 'cover' }}
+                      placeholder={lastScreenshot.startsWith('data:image') ? 'blur' : undefined}
+                      blurDataURL={lastScreenshot.startsWith('data:image') ? lastScreenshot : undefined}
+                    />
                     <button onClick={async () => { await navigator.clipboard.writeText(lastScreenshot); }} className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs text-white mt-1">Copiar enlace</button>
                   </div>
                 )}
@@ -331,7 +398,14 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
             </div>
           </div>
         </div>
+
+        <div className="absolute top-2 right-2 flex flex-col items-end gap-2 z-30">
+          {renderQualityBadge()}
+          {renderMetrics()}
+        </div>
       </div>
     </div>
   );
-}; 
+};
+
+export default EnhancedWebRTC; 

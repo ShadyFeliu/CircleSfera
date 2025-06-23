@@ -8,12 +8,18 @@ import ScreenRecorder from "./ScreenRecorder";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useTheme } from "./ThemeProvider";
 import { ThemeSettings } from "./ThemeSettings";
-import { UserDashboard } from "./UserDashboard";
 import { AdvancedPreferences } from "./AdvancedPreferences";
 import { SocialSharing } from "./SocialSharing";
-import { EnhancedWebRTC } from "./EnhancedWebRTC";
 import Image from "next/image";
 import VideoEffectsBar from "./VideoEffectsBar";
+import { useSocket } from "@/hooks/useSocket";
+import { useWebRTC, WebRTCStatus } from "@/hooks/useWebRTC";
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
+import PartnerProfile, { PartnerProfileData } from "./PartnerProfile";
+
+const EnhancedWebRTC = dynamic(() => import("./EnhancedWebRTC"));
+const UserDashboard = dynamic(() => import("./UserDashboard"));
 
 type Message = {
   author: "me" | "partner";
@@ -89,14 +95,16 @@ const CONNECTION_TIMEOUT = 30000; // 30 segundos
 const SIGNALING_TIMEOUT = 20000; // 20 segundos
 
 const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: string }) => {
+  // --- HOOKS AL INICIO ---
+  // Estados principales
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState("Buscando un compañero...");
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [connectionError, setConnectionError] = useState<ConnectionError | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const MAX_RECONNECT_ATTEMPTS = 3;
-  
-  // User statistics hook
+
+  // Estadísticas de usuario
   const {
     incrementChats,
     addChatTime,
@@ -104,9 +112,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     addCountry
   } = useUserStats();
 
-  // Theme hook
+  // Tema
   const { toggleTheme, colorScheme } = useTheme();
-  
+
+  // Preferencias y UI
   const [myFilter, setMyFilter] = useState("");
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(0);
@@ -118,29 +127,78 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const [showReportModal, setShowReportModal] = useState(false);
   const [showScreenRecorder, setShowScreenRecorder] = useState(false);
   const [connectionQuality, setConnectionQuality] = useState<"excellent" | "good" | "poor">("good");
-
-  // Nuevas funcionalidades
   const [showThemeSettings, setShowThemeSettings] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
   const [showSocialSharing, setShowSocialSharing] = useState(false);
   const [useEnhancedWebRTC, setUseEnhancedWebRTC] = useState(false);
   const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
-  const [partnerStreamRef, setPartnerStreamRef] = useState<MediaStream | null>(null);
   const [currentEffect, setCurrentEffect] = useState<string>('none');
+  const [incomingReaction, setIncomingReaction] = useState<string | null>(null);
+  const [reactionKey, setReactionKey] = useState(0);
+  const [partnerProfile, setPartnerProfile] = useState<PartnerProfileData | null>(null);
 
+  // Refs
   const myVideo = useRef<HTMLVideoElement>(null);
   const partnerVideo = useRef<HTMLVideoElement>(null);
-  const peerRef = useRef<Peer.Instance>();
-  const socketRef = useRef<Socket>();
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
   const myStreamRef = useRef<MediaStream>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const markIntentionalDisconnectRef = useRef<(() => void) | null>(null);
 
+  // WebRTC y socket
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [partnerSignal, setPartnerSignal] = useState<Peer.SignalData | null>(null);
+  const [isInitiator, setIsInitiator] = useState(false);
+  const [webRTCReady, setWebRTCReady] = useState(false);
+  const [webRTCError, setWebRTCError] = useState<Error | null>(null);
+  const [webRTCStatus, setWebRTCStatus] = useState<WebRTCStatus>('idle');
+  const [webRTCMetrics, setWebRTCMetrics] = useState({ rtt: 0, packetsLost: 0, bitrate: 0 });
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
+  // Socket personalizado
+  const { socket, status: socketStatus, retries } = useSocket(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+  const socketRef = useRef<typeof socket | null>(null);
+  useEffect(() => { socketRef.current = socket; }, [socket]);
+
+  // useWebRTC SIEMPRE después de los useState necesarios
+  const {
+    status: rtcStatus,
+    error: rtcError,
+    remoteStream: rtcRemoteStream,
+    metrics: rtcMetrics,
+    createPeer,
+    signal: sendSignal,
+    destroy: destroyPeer,
+    peer,
+  } = useWebRTC({
+    initiator: isInitiator,
+    stream: localStream,
+    iceServers: ICE_SERVERS.iceServers,
+    onSignal: (data) => {
+      if (socketRef.current) {
+        socketRef.current.emit('signal', data);
+      }
+    },
+    onError: (err) => setWebRTCError(err),
+    onQualityChange: (quality) => setConnectionQuality(quality),
+  });
+
+  // Sincronizo los estados del hook con los locales para mantener la UI:
+  useEffect(() => { setRemoteStream(rtcRemoteStream); }, [rtcRemoteStream]);
+  useEffect(() => { setWebRTCMetrics(rtcMetrics); }, [rtcMetrics]);
+  useEffect(() => { setWebRTCStatus(rtcStatus); }, [rtcStatus]);
+  useEffect(() => { setWebRTCError(rtcError); }, [rtcError]);
+
   // Emojis disponibles
   const emojis = ["😀", "😂", "😍", "🤔", "👍", "👎", "❤️", "🔥", "🎉", "😎", "🤣", "😭", "😱", "😴", "🤗", "😇"];
+
+  // Emojis de reacción rápida
+  const quickReactions = ["🎉", "😂", "👍", "❤️", "🔥", "👏", "😮", "😎", "🥳", "🤩"];
+
+  // Animación CSS para reacciones
+  const reactionAnimation = "animate-reaction-pop absolute left-1/2 top-1/3 text-5xl pointer-events-none select-none z-[90]";
 
   // Cargar preferencias del usuario
   useEffect(() => {
@@ -164,20 +222,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, [interests, ageFilter]);
 
   const handleNextChat = useCallback(() => {
-    // Marcar desconexión intencional para evitar falsos positivos de mala conexión
-    if (peerRef.current) {
-      // Si tenemos la función de markIntentionalDisconnect, la llamamos
-      if (markIntentionalDisconnectRef.current) {
-        markIntentionalDisconnectRef.current();
-      }
-      peerRef.current.removeAllListeners && peerRef.current.removeAllListeners();
-      peerRef.current.destroy();
-      peerRef.current = undefined;
-    }
-    
-    // Resetear calidad de conexión a neutral
-    setConnectionQuality("good");
-    
     setMessages([]);
     setStatus("Buscando un compañero...");
     setConnectionStatus("waiting");
@@ -186,7 +230,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     if (partnerVideo.current) {
       partnerVideo.current.srcObject = null;
     }
-    setPartnerStreamRef(null);
+    setRemoteStream(null);
     // Buscar nuevo compañero
     if (socketRef.current?.connected) {
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
@@ -311,8 +355,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       if (myStream) {
         myStream.getTracks().forEach(track => track.stop());
       }
-      if (peerRef.current) {
-        peerRef.current.destroy();
+      if (markIntentionalDisconnectRef.current) {
+        markIntentionalDisconnectRef.current();
       }
       clearInterval(userCountInterval);
       return;
@@ -337,10 +381,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         const setupPeer = (partnerID: string, initiator: boolean) => {
           // Limpiar peer anterior completamente
-          if (peerRef.current) {
-            peerRef.current.removeAllListeners && peerRef.current.removeAllListeners();
-            peerRef.current.destroy();
-            peerRef.current = undefined;
+          if (markIntentionalDisconnectRef.current) {
+            markIntentionalDisconnectRef.current();
           }
 
           // Limpiar video del compañero
@@ -362,7 +404,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             }
           });
           
-          peerRef.current = peer;
           console.log('[WebRTC] Nuevo peer creado. Initiator:', initiator);
           
           connectionTimeout = setTimeout(() => {
@@ -410,7 +451,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           peer.on('stream', (partnerStream) => {
             console.log('[WebRTC] Stream de compañero recibido:', partnerStream);
             if (!isComponentMounted) return;
-            setPartnerStreamRef(partnerStream);
+            setRemoteStream(partnerStream);
             if (partnerVideo.current && !useEnhancedWebRTC) {
               partnerVideo.current.srcObject = partnerStream;
             }
@@ -437,7 +478,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             if (partnerVideo.current) {
               partnerVideo.current.srcObject = null;
             }
-            setPartnerStreamRef(null);
+            setRemoteStream(null);
             addCountry(["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"][Math.floor(Math.random() * 6)]);
           });
 
@@ -486,15 +527,20 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           });
         };
 
-        socket.on("partner", (data: { id: string; initiator: boolean; }) => { 
+        socket.on("partner", (data: { id: string; initiator: boolean; profile?: unknown }) => { 
           if (isComponentMounted) {
-            setupPeer(data.id, data.initiator); 
+            setupPeer(data.id, data.initiator);
+            if (data.profile) {
+              setPartnerProfile(data.profile);
+            } else {
+              setPartnerProfile(null);
+            }
           }
         });
         
         socket.on("signal", (data: { from: string; signal: Peer.SignalData; }) => { 
-          if (peerRef.current && isComponentMounted) {
-            peerRef.current.signal(data.signal); 
+          if (peer && isComponentMounted) {
+            peer.signal(data.signal); 
           }
         });
 
@@ -502,9 +548,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           if (!isComponentMounted) return;
           
             setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
-          if(peerRef.current) {
-            peerRef.current.destroy();
-            peerRef.current = undefined;
+          if(peer) {
+            peer.destroy();
           }
           const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
           socketRef.current?.emit('find_partner', { interests: interestsArray, ageFilter });
@@ -552,12 +597,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         myStream.getTracks().forEach(track => track.stop());
       }
       
-      if (peerRef.current) {
-        peerRef.current.removeAllListeners && peerRef.current.removeAllListeners();
-        peerRef.current.destroy();
-        peerRef.current = undefined;
-      }
-      
       socket.off('connect', onConnect);
       socket.off('user_count', onUserCount);
       socket.off("partner");
@@ -572,10 +611,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   
   // Efecto para manejar la restauración del stream del compañero cuando se cierra el WebRTC Avanzado
   useEffect(() => {
-    if (!useEnhancedWebRTC && partnerStreamRef && partnerVideo.current) {
-      partnerVideo.current.srcObject = partnerStreamRef;
+    if (!useEnhancedWebRTC && remoteStream && partnerVideo.current) {
+      partnerVideo.current.srcObject = remoteStream;
     }
-  }, [useEnhancedWebRTC, partnerStreamRef]);
+  }, [useEnhancedWebRTC, remoteStream]);
   
   const monitorConnectionQuality = (peer: Peer.Instance) => {
     let isIntentionalDisconnect = false;
@@ -645,10 +684,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     setConnectionStatus("error");
   };
 
+  // Enviar datos por el canal de datos del peer del hook
   const sendData = (data: DataType) => {
-    if (peerRef.current && peerRef.current.connected) {
-      peerRef.current.send(JSON.stringify(data));
-  }
+    if (peer && peer.connected) {
+      peer.send(JSON.stringify(data));
+    }
   };
 
   const playNotificationSound = () => {
@@ -885,8 +925,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   // Enviar efecto al compañero por WebRTC
   useEffect(() => {
-    if (peerRef.current && peerRef.current.connected) {
-      peerRef.current.send(JSON.stringify({ type: 'effect', effect: currentEffect }));
+    if (peer && peer.connected) {
+      peer.send(JSON.stringify({ type: 'effect', effect: currentEffect }));
     }
     // Aplica el efecto al vídeo local
     if (myVideo.current) {
@@ -900,14 +940,14 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         myVideo.current.style.transform = 'scale(1) rotate(0deg)';
       }
     }
-  }, [currentEffect]);
+  }, [currentEffect, peer]);
 
   // Aplica el efecto recibido al vídeo del compañero
   useEffect(() => {
-    if (!peerRef.current) return;
-    peerRef.current.on('data', (data) => {
+    if (!peer) return;
+    const onData = (data: unknown) => {
       try {
-        const parsed = JSON.parse(data.toString());
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
         if (parsed.type === 'effect' && partnerVideo.current) {
           if (parsed.effect === 'mirror') {
             partnerVideo.current.style.transform = 'scaleX(-1)';
@@ -920,373 +960,512 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           }
         }
       } catch {}
-    });
-  }, []);
+    };
+    peer.on('data', onData);
+    return () => {
+      peer.off('data', onData);
+    };
+  }, [peer]);
+
+  // Feedback visual del estado de conexión Socket.IO
+  const renderSocketStatus = () => {
+    let color = "text-gray-400";
+    let text = "Desconectado";
+    if (socketStatus === "connected") { color = "text-green-500"; text = "Conectado"; }
+    else if (socketStatus === "reconnecting") { color = "text-yellow-500"; text = `Reconectando (${retries})...`; }
+    else if (socketStatus === "failed") { color = "text-red-500"; text = "Fallo de conexión"; }
+    return (
+      <div className={`fixed top-2 right-2 z-50 px-3 py-1 rounded shadow bg-white/80 dark:bg-gray-900/80 ${color} text-sm font-semibold transition-all`}>
+        <span className="mr-2">●</span>{text}
+      </div>
+    );
+  };
+
+  // Feedback visual de calidad y métricas WebRTC
+  const renderWebRTCQuality = () => {
+    let color = 'bg-gray-500';
+    let text = 'Desconocida';
+    if (webRTCStatus === 'connected') {
+      if (webRTCMetrics.rtt < 100 && webRTCMetrics.packetsLost < 5) {
+        color = 'bg-green-600'; text = 'Excelente';
+      } else if (webRTCMetrics.rtt > 300 || webRTCMetrics.packetsLost > 20) {
+        color = 'bg-red-600'; text = 'Mala';
+      } else {
+        color = 'bg-yellow-500'; text = 'Buena';
+      }
+    } else if (webRTCStatus === 'connecting') {
+      color = 'bg-yellow-500'; text = 'Conectando...';
+    } else if (webRTCStatus === 'error') {
+      color = 'bg-red-600'; text = 'Error';
+    }
+    return (
+      <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white shadow ${color} transition-all duration-200 hover:scale-105 active:scale-95`}>
+        <span className="mr-2">🔗</span>{text}
+      </div>
+    );
+  };
+
+  const renderWebRTCMetrics = () => (
+    <div className="flex flex-col gap-1 text-xs text-gray-200 bg-gray-900/80 rounded-lg px-3 py-2 mt-2 shadow-lg border border-gray-700 w-fit transition-all duration-200 hover:scale-105 active:scale-95">
+      <div>RTT: <span className="font-mono">{Math.round(webRTCMetrics.rtt)} ms</span></div>
+      <div>Pérdida: <span className="font-mono">{webRTCMetrics.packetsLost}</span></div>
+      <div>Bitrate: <span className="font-mono">{(webRTCMetrics.bitrate/1000).toFixed(0)} kbps</span></div>
+    </div>
+  );
+
+  // Botón de volver solo móvil
+  const renderBackButton = () => (
+    <button
+      onClick={() => window.history.back()}
+      className="fixed top-4 left-4 z-[100] md:hidden bg-black/70 text-white px-4 py-2 rounded-full shadow-lg border border-gray-700 backdrop-blur-sm text-base font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+      aria-label="Volver"
+    >
+      ⬅ Volver
+    </button>
+  );
+
+  // Animación de entrada para mensajes
+  const messageAnimation = "animate-fade-in-up transition-all duration-300";
+
+  // Enviar reacción al compañero
+  const sendReaction = (emoji: string) => {
+    if (peer && peer.connected) {
+      peer.send(JSON.stringify({ type: 'reaction', emoji }));
+    } else if (socketRef.current?.connected) {
+      socketRef.current.emit('reaction', { emoji });
+    }
+    setIncomingReaction(emoji);
+    setReactionKey(prev => prev + 1);
+    setTimeout(() => setIncomingReaction(null), 1200);
+  };
+
+  // Recibir reacción por WebRTC
+  useEffect(() => {
+    if (!peer) return;
+    const onData = (data: unknown) => {
+      try {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        if (parsed.type === 'reaction' && parsed.emoji) {
+          setIncomingReaction(parsed.emoji);
+          setReactionKey(prev => prev + 1);
+          setTimeout(() => setIncomingReaction(null), 1200);
+        }
+      } catch {}
+    };
+    peer.on('data', onData);
+    return () => { peer.off('data', onData); };
+  }, [peer]);
 
   return (
-    <div className="w-full min-h-screen flex flex-col md:flex-row gap-4 md:gap-8 p-2 sm:p-4 md:p-8 bg-gray-900">
-      <div className="flex-1 flex flex-col gap-4">
-        <div className="w-full h-[60vh] lg:h-[70vh] bg-gradient-to-br from-black to-gray-900 rounded-2xl overflow-hidden relative video-container shadow-2xl border border-gray-700">
-          <video 
-            ref={partnerVideo} 
-            autoPlay 
-            playsInline
-            className="w-full h-full object-cover relative z-0" 
-          />
-          <video 
-            ref={myVideo} 
-            autoPlay 
-            muted 
-            playsInline
-            className={`w-32 h-32 lg:w-48 lg:h-48 absolute right-4 lg:right-6 bottom-4 lg:bottom-6 rounded-xl object-cover ring-4 ring-gray-700 transition-all duration-300 shadow-lg z-50 ${myFilter} transform-gpu`} 
-          />
-          
-          <div className="absolute top-4 lg:top-6 left-4 lg:left-6 bg-black bg-opacity-70 backdrop-blur-sm text-white p-3 lg:p-4 rounded-xl animate-fade-in z-10 text-sm lg:text-base font-medium border border-gray-600">
-            {status}
-            {status.includes("Error") && status.includes("cámara") && (
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={requestCameraPermissions}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs transition-colors"
-                >
-                  Permitir Cámara + Mic
-                </button>
-                <button
-                  onClick={forceCameraOnly}
-                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-xs transition-colors"
-                >
-                  Solo Cámara
-                </button>
+    <>
+      {renderBackButton()}
+      <div className="w-full min-h-screen flex flex-col md:flex-row gap-4 md:gap-8 p-2 sm:p-4 md:p-8 bg-gray-900">
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="w-full h-[60vh] lg:h-[70vh] bg-gradient-to-br from-black to-gray-900 rounded-2xl overflow-hidden relative video-container shadow-2xl border border-gray-700">
+            <video 
+              ref={partnerVideo} 
+              autoPlay 
+              playsInline
+              className="w-full h-full object-cover relative z-0" 
+            />
+            {/* Perfil del compañero */}
+            {partnerProfile && (
+              <div className="absolute top-4 right-4 z-20">
+                <PartnerProfile profile={partnerProfile} />
               </div>
             )}
-          </div>
-          
-          <div className="absolute top-4 lg:top-6 right-4 lg:right-6 bg-gradient-to-r from-green-600 to-green-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base animate-fade-in z-10 font-medium shadow-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-              <span>{onlineUsers} online</span>
-            </div>
-          </div>
-
-          <div className="absolute top-16 lg:top-20 right-4 lg:right-6 bg-black bg-opacity-70 backdrop-blur-sm text-white p-3 lg:p-4 rounded-xl connection-indicator z-10 border border-gray-600">
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${connectionQuality === 'excellent' ? 'bg-green-500 animate-pulse' : connectionQuality === 'good' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm hidden sm:inline font-medium">
-                {connectionQuality === 'excellent' ? 'Excelente' : connectionQuality === 'good' ? 'Buena' : 'Mala'} conexión
-              </span>
-            </div>
-          </div>
-
-          <div className="absolute top-4 lg:top-6 left-1/2 transform -translate-x-1/2 flex space-x-2 lg:space-x-3 z-10">
-            {isPartnerMuted && (
-              <div className="bg-red-600 text-white px-3 py-2 rounded-xl animate-fade-in text-sm font-medium shadow-lg border border-red-500">
-                🔇 Silenciado
-              </div>
-            )}
+            <video 
+              ref={myVideo} 
+              autoPlay 
+              muted 
+              playsInline
+              className={`w-32 h-32 lg:w-48 lg:h-48 absolute right-4 lg:right-6 bottom-4 lg:bottom-6 rounded-xl object-cover ring-4 ring-gray-700 transition-all duration-300 shadow-lg z-50 ${myFilter} transform-gpu`} 
+            />
             
-            {isPartnerVideoOff && (
-              <div className="bg-gray-600 text-white px-3 py-2 rounded-xl animate-fade-in text-sm font-medium shadow-lg border border-gray-500">
-                📹 Sin video
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-wrap justify-center items-center gap-3 lg:gap-4 p-4 bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl border border-gray-700">
-          <div className="flex flex-wrap gap-2 lg:gap-3">
-            <button onClick={() => setMyFilter('')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Normal</button>
-            <button onClick={() => setMyFilter('grayscale')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">B&N</button>
-            <button onClick={() => setMyFilter('sepia')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Sepia</button>
-            <button onClick={() => setMyFilter('invert')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Invertir</button>
-          </div>
-          
-          <button 
-            onClick={toggleMute} 
-            className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${isMuted ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-green-600 hover:bg-green-700 border-green-500'} text-white border`}
-          >
-            {isMuted ? '🔇' : '🔊'}
-          </button>
-          
-          <button 
-            onClick={toggleVideo} 
-            aria-label="Activar/desactivar video"
-            className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${isVideoOff ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-green-600 hover:bg-green-700 border-green-500'} text-white border`}
-          >
-            {isVideoOff ? '📹' : '📷'}
-          </button>
-
-          <button onClick={handleNextChat} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-2 lg:py-3 px-6 lg:px-8 rounded-xl text-base lg:text-lg transition-all duration-200 transform hover:scale-105 shadow-lg border border-blue-500">
-            Siguiente
-          </button>
-
-          <button 
-            onClick={() => setShowThemeSettings(true)}
-            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-indigo-500"
-            title="Personalizar tema"
-          >
-            🎨
-          </button>
-
-          <button 
-            onClick={() => setShowDashboard(true)}
-            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-purple-500"
-            title="Mi Dashboard"
-          >
-            📊
-          </button>
-
-          <button 
-            onClick={() => setShowPreferences(true)}
-            className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-orange-500"
-            title="Preferencias"
-          >
-            ⚙️
-          </button>
-
-          <button 
-            onClick={() => setShowSocialSharing(true)}
-            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-green-500"
-            title="Compartir"
-          >
-            📤
-          </button>
-
-          <button 
-            onClick={() => setUseEnhancedWebRTC(!useEnhancedWebRTC)}
-            className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${
-              useEnhancedWebRTC ? 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 border-teal-500' : 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 border-gray-500'
-            } text-white border`}
-            title="WebRTC Avanzado"
-          >
-            ⚡
-          </button>
-
-          <button 
-            onClick={() => setShowReportModal(true)} 
-            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-red-500"
-          >
-            Reportar
-          </button>
-
-          <button 
-            onClick={() => setShowScreenRecorder(!showScreenRecorder)} 
-            disabled={connectionStatus !== 'connected'}
-            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            🎥
-          </button>
-        </div>
-
-        {showScreenRecorder && (
-          <div className="mt-6">
-            <ScreenRecorder />
-          </div>
-        )}
-
-        <VideoEffectsBar
-          currentEffect={currentEffect}
-          setCurrentEffect={setCurrentEffect}
-          videoEffects={[
-            { id: 'mirror', name: 'Espejo', icon: '🪞' },
-            { id: 'zoom', name: 'Zoom', icon: '🔍' },
-            { id: 'rotate', name: 'Rotar', icon: '🔄' },
-          ]}
-        />
-      </div>
-
-      <div className={`w-full md:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col h-[45vh] sm:h-[50vh] md:h-[70vh] shadow-2xl border border-gray-700 ${useEnhancedWebRTC ? 'hidden' : ''}`}>
-        <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">Chat</h2>
-        
-        <div className="flex-grow overflow-y-auto mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-xl custom-scrollbar border border-gray-600">
-          {messages.map((message, index) => (
-            <div key={index} className={`mb-3 ${message.author === "me" ? "text-right" : "text-left"}`}>
-              <div className={`inline-block p-3 lg:p-4 rounded-2xl max-w-[85%] lg:max-w-sm shadow-lg ${
-                message.author === "me" 
-                  ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white" 
-                  : "bg-gradient-to-r from-gray-600 to-gray-700 text-white"
-              }`}>
-                {message.type === "image" && message.imageUrl && (
-                  <Image 
-                    src={message.imageUrl} 
-                    alt="Imagen compartida" 
-                    width={150} 
-                    height={100}
-                    className="rounded-lg mb-2 w-full"
-                  />
-                )}
-                <p className="text-sm lg:text-base">{message.text}</p>
-                <p className="text-xs opacity-70 mt-2">{formatTime(message.timestamp)}</p>
+            <div className="absolute top-4 lg:top-6 left-4 lg:left-6 bg-black bg-opacity-70 backdrop-blur-sm text-white p-3 lg:p-4 rounded-xl animate-fade-in z-10 text-sm lg:text-base font-medium border border-gray-600">
+              {status}
+              {status.includes("Error") && status.includes("cámara") && (
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={requestCameraPermissions}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs transition-colors"
+                  >
+                    Permitir Cámara + Mic
+                  </button>
+                  <button
+                    onClick={forceCameraOnly}
+                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-xs transition-colors"
+                  >
+                    Solo Cámara
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <div className="absolute top-4 lg:top-6 right-4 lg:right-6 bg-gradient-to-r from-green-600 to-green-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base animate-fade-in z-10 font-medium shadow-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                <span>{onlineUsers} online</span>
               </div>
             </div>
-          ))}
-        </div>
-        
-        <div className="h-8">
-          {isPartnerTyping && (
-            <div className="typing-indicator">
-              <span className="text-sm lg:text-base text-gray-400 italic">El compañero está escribiendo</span>
-              <div className="typing-dot"></div>
-              <div className="typing-dot"></div>
-              <div className="typing-dot"></div>
+
+            <div className="absolute top-16 lg:top-20 right-4 lg:right-6 bg-black bg-opacity-70 backdrop-blur-sm text-white p-3 lg:p-4 rounded-xl connection-indicator z-10 border border-gray-600">
+              <div className="flex items-center space-x-2">
+                <div className={`w-3 h-3 rounded-full ${connectionQuality === 'excellent' ? 'bg-green-500 animate-pulse' : connectionQuality === 'good' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+                <span className="text-sm hidden sm:inline font-medium">
+                  {connectionQuality === 'excellent' ? 'Excelente' : connectionQuality === 'good' ? 'Buena' : 'Mala'} conexión
+                </span>
+              </div>
+            </div>
+
+            <div className="absolute top-4 lg:top-6 left-1/2 transform -translate-x-1/2 flex space-x-2 lg:space-x-3 z-10">
+              {isPartnerMuted && (
+                <div className="bg-red-600 text-white px-3 py-2 rounded-xl animate-fade-in text-sm font-medium shadow-lg border border-red-500">
+                  🔇 Silenciado
+                </div>
+              )}
+              
+              {isPartnerVideoOff && (
+                <div className="bg-gray-600 text-white px-3 py-2 rounded-xl animate-fade-in text-sm font-medium shadow-lg border border-gray-500">
+                  📹 Sin video
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-center items-center gap-3 lg:gap-4 p-4 bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl border border-gray-700">
+            <div className="flex flex-wrap gap-2 lg:gap-3">
+              <button onClick={() => setMyFilter('')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Normal</button>
+              <button onClick={() => setMyFilter('grayscale')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">B&N</button>
+              <button onClick={() => setMyFilter('sepia')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Sepia</button>
+              <button onClick={() => setMyFilter('invert')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Invertir</button>
+            </div>
+            
+            <button 
+              onClick={toggleMute} 
+              className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${isMuted ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-green-600 hover:bg-green-700 border-green-500'} text-white border`}
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
+            
+            <button 
+              onClick={toggleVideo} 
+              aria-label="Activar/desactivar video"
+              className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${isVideoOff ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-green-600 hover:bg-green-700 border-green-500'} text-white border`}
+            >
+              {isVideoOff ? '📹' : '📷'}
+            </button>
+
+            <button onClick={handleNextChat} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-2 lg:py-3 px-6 lg:px-8 rounded-xl text-base lg:text-lg transition-all duration-200 transform hover:scale-105 shadow-lg border border-blue-500">
+              Siguiente
+            </button>
+
+            <button 
+              onClick={() => setShowThemeSettings(true)}
+              className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-indigo-500"
+              title="Personalizar tema"
+            >
+              🎨
+            </button>
+
+            <button 
+              onClick={() => setShowDashboard(true)}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-purple-500"
+              title="Mi Dashboard"
+            >
+              📊
+            </button>
+
+            <button 
+              onClick={() => setShowPreferences(true)}
+              className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-orange-500"
+              title="Preferencias"
+            >
+              ⚙️
+            </button>
+
+            <button 
+              onClick={() => setShowSocialSharing(true)}
+              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-green-500"
+              title="Compartir"
+            >
+              📤
+            </button>
+
+            <button 
+              onClick={() => setUseEnhancedWebRTC(!useEnhancedWebRTC)}
+              className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${
+                useEnhancedWebRTC ? 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 border-teal-500' : 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 border-gray-500'
+              } text-white border`}
+              title="WebRTC Avanzado"
+            >
+              ⚡
+            </button>
+
+            <button 
+              onClick={() => setShowReportModal(true)} 
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-red-500"
+            >
+              Reportar
+            </button>
+
+            <button 
+              onClick={() => setShowScreenRecorder(!showScreenRecorder)} 
+              disabled={connectionStatus !== 'connected'}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              🎥
+            </button>
+          </div>
+
+          {showScreenRecorder && (
+            <div className="mt-6">
+              <ScreenRecorder />
             </div>
           )}
-        </div>
 
-        <div className="flex space-x-2 lg:space-x-3 mb-4">
-          <button 
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
-            className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
-          >
-            😀
-          </button>
-          <button 
-            onClick={() => fileInputRef.current?.click()} 
-            aria-label="Enviar imagen"
-            className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
-          >
-            📷
-          </button>
-          <input 
-            ref={fileInputRef}
-            type="file" 
-            accept="image/*" 
-            onChange={handleImageUpload} 
-            className="hidden" 
+          <VideoEffectsBar
+            currentEffect={currentEffect}
+            setCurrentEffect={setCurrentEffect}
+            videoEffects={[
+              { id: 'mirror', name: 'Espejo', icon: '🪞' },
+              { id: 'zoom', name: 'Zoom', icon: '🔍' },
+              { id: 'rotate', name: 'Rotar', icon: '🔄' },
+            ]}
           />
         </div>
 
-        {showEmojiPicker && (
-          <div className="bg-gray-700 bg-opacity-80 backdrop-blur-sm p-3 lg:p-4 rounded-xl mb-4 emoji-grid border border-gray-600">
-            {emojis.map((emoji, index) => (
-              <button
-                key={index}
-                onClick={() => handleSendEmoji(emoji)}
-                className="emoji-button text-base lg:text-lg hover:scale-125 transition-transform duration-200"
-              >
-                {emoji}
-              </button>
+        <div className={`w-full md:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col h-[45vh] sm:h-[50vh] md:h-[70vh] shadow-2xl border border-gray-700 ${useEnhancedWebRTC ? 'hidden' : ''}`}>
+          <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">Chat</h2>
+          
+          <div className="flex-grow overflow-y-auto mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-xl custom-scrollbar border border-gray-600">
+            {messages.map((message, index) => (
+              <div key={index} className={`mb-3 ${message.author === "me" ? "text-right" : "text-left"} ${messageAnimation}`}>
+                <div className={`inline-block p-3 lg:p-4 rounded-2xl max-w-[85%] lg:max-w-sm shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 ${
+                  message.author === "me" 
+                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white" 
+                    : "bg-gradient-to-r from-gray-600 to-gray-700 text-white"
+                }`}>
+                  {message.type === "image" && message.imageUrl && (
+                    <Image
+                      src={message.imageUrl}
+                      alt="Imagen compartida"
+                      width={300}
+                      height={200}
+                      className="rounded-lg mb-2 w-full"
+                      loading="lazy"
+                      sizes="(max-width: 600px) 100vw, 300px"
+                      style={{ objectFit: 'cover' }}
+                    />
+                  )}
+                  <p className="text-sm lg:text-base">{message.text}</p>
+                  <p className="text-xs opacity-70 mt-2">{formatTime(message.timestamp)}</p>
+                </div>
+              </div>
             ))}
+          </div>
+          
+          <div className="h-8">
+            {isPartnerTyping && (
+              <div className="typing-indicator">
+                <span className="text-sm lg:text-base text-gray-400 italic">El compañero está escribiendo</span>
+                <div className="typing-dot"></div>
+                <div className="typing-dot"></div>
+                <div className="typing-dot"></div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex space-x-2 lg:space-x-3 mb-4">
+            <button 
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+              className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
+            >
+              😀
+            </button>
+            <button 
+              onClick={() => fileInputRef.current?.click()} 
+              aria-label="Enviar imagen"
+              className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
+            >
+              📷
+            </button>
+            <input 
+              ref={fileInputRef}
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageUpload} 
+              className="hidden" 
+            />
+          </div>
+
+          {showEmojiPicker && (
+            <div className="bg-gray-700 bg-opacity-80 backdrop-blur-sm p-3 lg:p-4 rounded-xl mb-4 emoji-grid border border-gray-600">
+              {emojis.map((emoji, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSendEmoji(emoji)}
+                  className="emoji-button text-base lg:text-lg hover:scale-125 transition-transform duration-200"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleSendMessage} className="flex space-x-2 lg:space-x-3">
+            <input 
+              ref={messageInputRef}
+              type="text"
+              name="message" 
+              placeholder="Escribe un mensaje..." 
+              onInput={handleTyping}
+              className="flex-1 bg-gray-700 bg-opacity-80 backdrop-blur-sm text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600 placeholder-gray-400"
+            />
+            <button
+              type="submit"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-blue-500"
+            >
+              Enviar
+            </button>
+          </form>
+        </div>
+
+        {showReportModal && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 p-4">
+            <div className="bg-gray-800 p-4 lg:p-6 rounded-lg max-w-sm w-full">
+              <h3 className="text-lg lg:text-xl font-bold mb-4">Reportar Usuario</h3>
+              <div className="space-y-2">
+                {["Contenido inapropiado", "Comportamiento abusivo", "Spam", "Otro"].map((reason) => (
+                <button 
+                    key={reason}
+                    onClick={() => reportUser(reason)}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
+                >
+                    {reason}
+                </button>
+                ))}
+              </div>
+                <button 
+                onClick={() => setShowReportModal(false)}
+                className="w-full mt-4 bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
+                >
+                Cancelar
+                </button>
+            </div>
           </div>
         )}
 
-        <form onSubmit={handleSendMessage} className="flex space-x-2 lg:space-x-3">
-          <input 
-            ref={messageInputRef}
-            type="text"
-            name="message" 
-            placeholder="Escribe un mensaje..." 
-            onInput={handleTyping}
-            className="flex-1 bg-gray-700 bg-opacity-80 backdrop-blur-sm text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600 placeholder-gray-400"
-          />
-          <button
-            type="submit"
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-blue-500"
-          >
-            Enviar
-          </button>
-        </form>
+        <ThemeSettings 
+          isOpen={showThemeSettings} 
+          onClose={() => setShowThemeSettings(false)} 
+        />
+
+        {showDashboard && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-75">
+            <Suspense fallback={<div className="flex justify-center items-center h-32"><span className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></span> <span className="ml-3 text-blue-500 font-semibold">Cargando dashboard...</span></div>}>
+              <UserDashboard />
+            </Suspense>
+            <button 
+              onClick={() => setShowDashboard(false)}
+              className="fixed top-6 right-6 bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full z-50 shadow-lg border border-gray-600 transition-all duration-200 hover:scale-110"
+              title="Cerrar Dashboard"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        <AdvancedPreferences 
+          isOpen={showPreferences} 
+          onClose={() => setShowPreferences(false)}
+          onSave={(preferences) => {
+            setUserPreferences(preferences);
+            console.log('Preferencias guardadas:', preferences);
+          }}
+        />
+
+        <SocialSharing 
+          isOpen={showSocialSharing} 
+          onClose={() => setShowSocialSharing(false)}
+          shareData={{
+            title: 'CircleSfera - Conecta con el Mundo',
+            description: '¡Acabo de tener una gran conversación en CircleSfera! Únete y conoce personas increíbles.',
+            url: 'https://circlesfera.vercel.app',
+            image: '/og-image.jpg'
+          }}
+        />
+
+        {useEnhancedWebRTC && myStreamRef.current && (
+          <div className="fixed inset-0 z-[9999] bg-black bg-opacity-75 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  WebRTC Avanzado
+                </h2>
+                <button 
+                  onClick={() => setUseEnhancedWebRTC(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
+                <EnhancedWebRTC
+                  stream={myStreamRef.current}
+                  partnerStream={rtcRemoteStream}
+                  onStream={(stream) => {
+                    console.log('Stream del compañero recibido en WebRTC Avanzado');
+                  }}
+                  onConnectionChange={(connected) => {
+                    setConnectionStatus(connected ? 'connected' : 'disconnected');
+                  }}
+                  onQualityChange={(quality) => {
+                    setConnectionQuality(quality);
+                  }}
+                  isInitiator={false}
+                  signalData={null}
+                  onSignal={() => {}}
+                  onClose={() => setUseEnhancedWebRTC(false)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {renderSocketStatus()}
+
+        {/* Feedback WebRTC calidad y métricas */}
+        {webRTCStatus !== 'idle' && webRTCStatus !== 'disconnected' && (
+          <div className="fixed top-2 left-2 flex flex-col items-start gap-2 z-40">
+            {renderWebRTCQuality()}
+            {renderWebRTCMetrics()}
+          </div>
+        )}
+
+        {/* Panel de reacciones rápidas */}
+        <div className="flex gap-2 justify-center mt-2 mb-2">
+          {quickReactions.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => sendReaction(emoji)}
+              className="text-2xl md:text-3xl hover:scale-125 active:scale-90 transition-transform duration-150 focus:outline-none"
+              aria-label={`Enviar reacción ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+
+        {/* Overlay de reacción animada sobre el video del compañero */}
+        {incomingReaction && (
+          <span key={reactionKey} className={reactionAnimation} style={{ left: '50%', top: '35%' }}>
+            {incomingReaction}
+          </span>
+        )}
       </div>
-
-      {showReportModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 p-4">
-          <div className="bg-gray-800 p-4 lg:p-6 rounded-lg max-w-sm w-full">
-            <h3 className="text-lg lg:text-xl font-bold mb-4">Reportar Usuario</h3>
-            <div className="space-y-2">
-              {["Contenido inapropiado", "Comportamiento abusivo", "Spam", "Otro"].map((reason) => (
-              <button 
-                  key={reason}
-                  onClick={() => reportUser(reason)}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
-              >
-                  {reason}
-              </button>
-              ))}
-            </div>
-              <button 
-              onClick={() => setShowReportModal(false)}
-              className="w-full mt-4 bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
-              >
-              Cancelar
-              </button>
-          </div>
-        </div>
-      )}
-
-      <ThemeSettings 
-        isOpen={showThemeSettings} 
-        onClose={() => setShowThemeSettings(false)} 
-      />
-
-      {showDashboard && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-75">
-          <UserDashboard />
-          <button 
-            onClick={() => setShowDashboard(false)}
-            className="fixed top-6 right-6 bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full z-50 shadow-lg border border-gray-600 transition-all duration-200 hover:scale-110"
-            title="Cerrar Dashboard"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      <AdvancedPreferences 
-        isOpen={showPreferences} 
-        onClose={() => setShowPreferences(false)}
-        onSave={(preferences) => {
-          setUserPreferences(preferences);
-          console.log('Preferencias guardadas:', preferences);
-        }}
-      />
-
-      <SocialSharing 
-        isOpen={showSocialSharing} 
-        onClose={() => setShowSocialSharing(false)}
-        shareData={{
-          title: 'CircleSfera - Conecta con el Mundo',
-          description: '¡Acabo de tener una gran conversación en CircleSfera! Únete y conoce personas increíbles.',
-          url: 'https://circlesfera.vercel.app',
-          image: '/og-image.jpg'
-        }}
-      />
-
-      {useEnhancedWebRTC && myStreamRef.current && (
-        <div className="fixed inset-0 z-[9999] bg-black bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                WebRTC Avanzado
-              </h2>
-              <button 
-                onClick={() => setUseEnhancedWebRTC(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
-              <EnhancedWebRTC
-                stream={myStreamRef.current}
-                partnerStream={partnerStreamRef}
-                onStream={(stream) => {
-                  console.log('Stream del compañero recibido en WebRTC Avanzado');
-                }}
-                onConnectionChange={(connected) => {
-                  setConnectionStatus(connected ? 'connected' : 'disconnected');
-                }}
-                onQualityChange={(quality) => {
-                  setConnectionQuality(quality);
-                }}
-                isInitiator={false}
-                signalData={null}
-                onSignal={() => {}}
-                onClose={() => setUseEnhancedWebRTC(false)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 
