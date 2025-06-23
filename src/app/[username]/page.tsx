@@ -12,13 +12,16 @@ export default function UserProfilePage({ params }: { params: { username: string
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
 
+  // Extraer el username real de la URL (quitar el @ si existe)
+  const actualUsername = params.username.startsWith('@') ? params.username.slice(1) : params.username;
+
   useEffect(() => {
     async function fetchUser() {
       setLoading(true);
       setError(null);
       setSuccess(null);
       try {
-        const res = await fetch(`/api/user/${params.username}`);
+        const res = await fetch(`/api/user/${actualUsername}`);
         if (!res.ok) throw new Error("Usuario no encontrado");
         const data = await res.json();
         setUser(data);
@@ -26,7 +29,7 @@ export default function UserProfilePage({ params }: { params: { username: string
           nombre: data.nombre || "",
           email: data.email || "",
           telefono: data.telefono || "",
-          username: data.username || params.username,
+          username: data.username || actualUsername,
         });
       } catch (err: any) {
         setError(err.message || "Error al cargar el perfil");
@@ -35,7 +38,7 @@ export default function UserProfilePage({ params }: { params: { username: string
       }
     }
     fetchUser();
-  }, [params.username]);
+  }, [actualUsername]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -45,12 +48,20 @@ export default function UserProfilePage({ params }: { params: { username: string
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`/api/user/${params.username}`, {
+      const res = await fetch(`/api/user/${actualUsername}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      if (!res.ok) throw new Error("No se pudo actualizar el perfil");
+      if (!res.ok) {
+        const data = await res.json();
+        if (data.error && data.error.includes("ya está en uso")) {
+          setError("Ese nombre de usuario ya está en uso. Elige otro.");
+        } else {
+          setError(data.error || "Error al guardar los cambios");
+        }
+        return;
+      }
       const data = await res.json();
       setUser(data);
       setEditMode(false);
@@ -65,7 +76,7 @@ export default function UserProfilePage({ params }: { params: { username: string
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 text-white p-6">
       <div className="card w-full max-w-md mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-center">Perfil de @{user?.username || params.username}</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center">Perfil de @{user?.username || actualUsername}</h1>
         {error && <div className="bg-red-600 text-white p-2 rounded mb-4 text-center">{error}</div>}
         {success && <div className="bg-green-600 text-white p-2 rounded mb-4 text-center">{success}</div>}
         {editMode ? (
