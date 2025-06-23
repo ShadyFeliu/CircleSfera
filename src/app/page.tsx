@@ -23,20 +23,20 @@ export default function Home() {
 
   if (showChat) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white">
-        <ChatRoom interests={interests} ageFilter={ageFilter} />
+      <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center">
         <button
           onClick={handleBackToHome}
-          className="fixed top-4 left-4 bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition-colors z-10 shadow-lg border border-gray-600 text-xs sm:text-sm"
+          className="mb-6 bg-gray-800/80 hover:bg-gray-700 text-white px-5 py-2 rounded-full transition-all shadow-lg border border-gray-600 text-base font-semibold opacity-80 hover:opacity-100 backdrop-blur"
         >
           ← Volver
         </button>
+        <ChatRoom interests={interests} ageFilter={ageFilter} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 text-white flex flex-col justify-center items-center">
       {/* Header con controles de tema */}
       <div className="absolute top-2 right-2 sm:top-4 sm:right-4 flex space-x-2">
         <button
@@ -55,7 +55,7 @@ export default function Home() {
         </button>
       </div>
 
-      <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-12 md:py-16">
+      <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-12 md:py-16 flex flex-col justify-center items-center w-full">
         <div className="text-center mb-8 sm:mb-12">
           <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent break-words">
             CircleSfera
