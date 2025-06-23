@@ -264,7 +264,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-[#232526]/90 to-[#414345]/90 backdrop-blur-md">
-      <div className="relative w-full max-w-4xl mx-auto rounded-3xl shadow-2xl border border-gray-700 bg-gray-900/95 text-white animate-fade-in-up p-0 overflow-hidden">
+      <div className="relative w-full max-w-4xl mx-auto rounded-3xl shadow-2xl border border-gray-700 bg-gray-900/95 text-white animate-fade-in-up p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Encabezado */}
         <div className="flex justify-between items-center px-8 py-6 border-b border-gray-800 bg-gradient-to-r from-gray-900/80 to-gray-800/80">
           <h2 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
