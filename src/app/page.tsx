@@ -26,7 +26,7 @@ export default function Home() {
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center relative">
         <button
           onClick={handleBackToHome}
-          className="absolute top-4 left-2 sm:top-8 sm:left-4 bg-gray-800/80 hover:bg-gray-700 text-white px-5 py-2 rounded-full transition-all shadow-lg border border-gray-600 text-base font-semibold opacity-80 hover:opacity-100 backdrop-blur"
+          className="absolute top-4 left-2 sm:top-8 sm:left-4 z-50 bg-gray-800/80 hover:bg-gray-700 text-white px-5 py-2 rounded-full transition-all shadow-lg border border-gray-600 text-base font-semibold opacity-80 hover:opacity-100 backdrop-blur"
         >
           ← Volver
         </button>
