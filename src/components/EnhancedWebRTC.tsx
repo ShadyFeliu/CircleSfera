@@ -56,6 +56,9 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
     bitrate: 0
   });
   const [showControls, setShowControls] = useState(false);
+  const [lastScreenshot, setLastScreenshot] = useState<string | null>(null);
+  const [lastRecordingUrl, setLastRecordingUrl] = useState<string | null>(null);
+  const [isMirrored, setIsMirrored] = useState(false);
 
   // Filtros de video
   const videoFilters: VideoFilter[] = useMemo(() => [
@@ -218,6 +221,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
     mediaRecorder.onstop = () => {
       const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
+      setLastRecordingUrl(url);
       const a = document.createElement('a');
       a.href = url;
       a.download = `circlesfera-recording-${Date.now()}.webm`;
@@ -239,20 +243,17 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
   // Capturar screenshot
   const captureScreenshot = useCallback(() => {
     if (!localVideoRef.current || !canvasRef.current) return;
-
     const canvas = canvasRef.current;
     const video = localVideoRef.current;
     const ctx = canvas.getContext('2d');
-
     if (!ctx) return;
-
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
-
     canvas.toBlob((blob) => {
       if (blob) {
         const url = URL.createObjectURL(blob);
+        setLastScreenshot(url);
         const a = document.createElement('a');
         a.href = url;
         a.download = `circlesfera-screenshot-${Date.now()}.png`;
@@ -261,6 +262,29 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
       }
     }, 'image/png');
   }, []);
+
+  const resetAll = () => {
+    setCurrentFilter('none');
+    setCurrentEffect('none');
+  };
+
+  const invertCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      if (videoDevices.length < 2) return;
+      const currentFacing = isMirrored ? 'environment' : 'user';
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: currentFacing },
+        audio: false
+      });
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+      setIsMirrored(!isMirrored);
+    } catch {}
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-[#232526]/90 to-[#414345]/90 backdrop-blur-md">
@@ -284,7 +308,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
           {/* Columna de videos */}
           <div className="space-y-6 flex flex-col justify-center">
             {/* Video Local */}
-            <div className="bg-gray-800/80 rounded-2xl overflow-hidden relative border-2 border-blue-700/40 shadow-lg">
+            <div className={`bg-gray-800/80 rounded-2xl overflow-hidden relative border-2 border-blue-700/40 shadow-lg transition-all duration-300 ${currentEffect !== 'none' ? 'ring-4 ring-blue-400 animate-pulse-slow' : ''}`}>
               <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-56 md:h-64 object-cover transition-all duration-300" style={{ filter: videoFilters.find(f => f.id === currentFilter)?.cssFilter }} />
               <div className="absolute top-2 left-2 bg-blue-700/80 px-3 py-1 rounded-lg text-xs font-semibold shadow">Tu Cámara</div>
             </div>
@@ -304,14 +328,36 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
             </div>
             {/* Efectos SIEMPRE VISIBLES */}
             <div className="bg-gray-900/80 p-4 rounded-2xl shadow border border-gray-700 mt-2">
-              <h4 className="font-semibold mb-4 flex items-center gap-2 text-lg">✨ Efectos</h4>
+              <h4 className="font-semibold mb-1 flex items-center gap-2 text-lg">✨ Efectos</h4>
+              <p className="text-xs text-gray-300 mb-4">Aplica efectos visuales a tu video en tiempo real. ¡Haz clic para probarlos!</p>
               <div className="flex flex-wrap gap-4 justify-center">
-                <button onClick={() => setCurrentEffect('none')} className={`px-6 py-3 rounded-xl text-base font-semibold transition-colors shadow-lg ${currentEffect === 'none' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>❌ Sin efecto</button>
+                <button onClick={() => setCurrentEffect('none')} tabIndex={0} title="Quitar cualquier efecto visual" className={`px-6 py-3 rounded-xl text-base font-semibold transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${currentEffect === 'none' ? 'bg-blue-600 border-2 border-white' : 'bg-gray-700 hover:bg-gray-600'}`}>❌ Sin efecto {currentEffect === 'none' && <span className="ml-2 animate-bounce">✔️</span>}</button>
                 {videoEffects.map(effect => (
-                  <button key={effect.id} onClick={() => setCurrentEffect(effect.id)} className={`px-6 py-3 rounded-xl text-base font-semibold transition-colors shadow-lg flex items-center gap-2 ${currentEffect === effect.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{effect.icon} {effect.name}</button>
+                  <button key={effect.id} onClick={() => setCurrentEffect(effect.id)} tabIndex={0} title={`Efecto: ${effect.name}`} className={`px-6 py-3 rounded-xl text-base font-semibold transition-colors shadow-lg flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${currentEffect === effect.id ? 'bg-blue-600 border-2 border-white' : 'bg-gray-700 hover:bg-gray-600'}`}>{effect.icon} {effect.name} {currentEffect === effect.id && <span className="ml-2 animate-bounce">✔️</span>}</button>
                 ))}
               </div>
+              <div className="flex justify-center mt-4 gap-4">
+                <button onClick={resetAll} className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-semibold shadow focus:outline-none focus:ring-2 focus:ring-red-400">Restablecer todo</button>
+                <button onClick={invertCamera} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold shadow focus:outline-none focus:ring-2 focus:ring-indigo-400">Invertir cámara</button>
+              </div>
             </div>
+            {/* Miniaturas de capturas y grabaciones */}
+            {(lastScreenshot || lastRecordingUrl) && (
+              <div className="flex flex-col items-center mt-4 gap-2">
+                {lastScreenshot && (
+                  <div className="flex flex-col items-center">
+                    <img src={lastScreenshot} alt="Última captura" className="w-32 h-20 object-cover rounded-lg border-2 border-blue-400 mb-1" />
+                    <button onClick={async () => { await navigator.clipboard.writeText(lastScreenshot); }} className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs text-white mt-1">Copiar enlace</button>
+                  </div>
+                )}
+                {lastRecordingUrl && (
+                  <div className="flex flex-col items-center">
+                    <video src={lastRecordingUrl} controls className="w-32 h-20 object-cover rounded-lg border-2 border-green-400 mb-1" />
+                    <a href={lastRecordingUrl} download className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs text-white mt-1">Descargar grabación</a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Columna de Controles */}
@@ -343,7 +389,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
                     <div className="flex flex-wrap gap-2">
                       <button onClick={() => setCurrentFilter('none')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow ${currentFilter === 'none' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>❌ Quitar filtro</button>
                       {videoFilters.filter(f => f.id !== 'none').map(filter => (
-                        <button key={filter.id} onClick={() => setCurrentFilter(filter.id)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow ${currentFilter === filter.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{filter.icon} {filter.name}</button>
+                        <button key={filter.id} onClick={() => setCurrentFilter(filter.id)} tabIndex={0} title={`Filtro: ${filter.name}`} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow focus:outline-none focus:ring-2 focus:ring-blue-400 ${currentFilter === filter.id ? 'bg-blue-600 border-2 border-white' : 'bg-gray-700 hover:bg-gray-600'}`}>{filter.icon} {filter.name} {currentFilter === filter.id && <span className="ml-2 animate-bounce">✔️</span>}</button>
                       ))}
                     </div>
                   </div>
