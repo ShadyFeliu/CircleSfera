@@ -1273,7 +1273,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             )}
           </div>
           {/* Reacciones rápidas */}
-          <div className="flex gap-2 justify-center flex-wrap mb-2 sticky bottom-20 z-10 bg-transparent">
+          <div className="flex gap-2 justify-center flex-wrap mb-2 flex-shrink-0">
             {quickReactions.map((emoji) => (
               <button
                 key={emoji}
@@ -1286,7 +1286,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             ))}
           </div>
           {/* Input y botones */}
-          <form onSubmit={handleSendMessage} className="flex gap-2 mt-auto pb-2 sticky bottom-0 bg-gradient-to-br from-gray-800 to-gray-900 z-20 px-2">
+          <form onSubmit={handleSendMessage} className="flex gap-2 pb-2 flex-shrink-0 bg-gradient-to-br from-gray-800 to-gray-900 z-20 px-2">
             <button 
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
@@ -1321,7 +1321,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           </form>
           {/* Picker de emojis */}
           {showEmojiPicker && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-gray-700 bg-opacity-90 backdrop-blur-sm p-3 lg:p-4 rounded-xl mb-4 emoji-grid border border-gray-600 z-30">
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-gray-700 bg-opacity-90 backdrop-blur-sm p-3 lg:p-4 rounded-xl mb-4 emoji-grid border border-gray-600 z-30">
               {emojis.map((emoji, index) => (
                 <button
                   key={index}
