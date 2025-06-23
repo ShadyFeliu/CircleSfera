@@ -22,14 +22,6 @@ interface VideoFilter {
   icon: string;
 }
 
-interface VideoEffect {
-  id: string;
-  name: string;
-  icon: string;
-  apply: (video: HTMLVideoElement) => void;
-  remove: (video: HTMLVideoElement) => void;
-}
-
 export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
   stream,
   partnerStream,
@@ -49,7 +41,6 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
 
   const [isRecording, setIsRecording] = useState(false);
   const [currentFilter, setCurrentFilter] = useState<string>('none');
-  const [currentEffect, setCurrentEffect] = useState<string>('none');
   const [connectionStats, setConnectionStats] = useState({
     rtt: 0,
     packetsLost: 0,
@@ -69,32 +60,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
     { id: 'brightness', name: 'Brillo', cssFilter: 'brightness(150%)', icon: '☀️' },
     { id: 'contrast', name: 'Contraste', cssFilter: 'contrast(150%)', icon: '🎨' },
     { id: 'hue-rotate', name: 'Tono', cssFilter: 'hue-rotate(90deg)', icon: '🌈' },
-    { id: 'invert', name: 'Invertir', cssFilter: 'invert(100%)', icon: '🔄' }
-  ], []);
-
-  // Efectos de video
-  const videoEffects: VideoEffect[] = useMemo(() => [
-    {
-      id: 'mirror',
-      name: 'Espejo',
-      icon: '🪞',
-      apply: (video) => video.style.transform = 'scaleX(-1)',
-      remove: (video) => video.style.transform = 'scaleX(1)'
-    },
-    {
-      id: 'zoom',
-      name: 'Zoom',
-      icon: '🔍',
-      apply: (video) => video.style.transform = 'scale(1.2)',
-      remove: (video) => video.style.transform = 'scale(1)'
-    },
-    {
-      id: 'rotate',
-      name: 'Rotar',
-      icon: '🔄',
-      apply: (video) => video.style.transform = 'rotate(90deg)',
-      remove: (video) => video.style.transform = 'rotate(0deg)'
-    }
+    { id: 'invert', name: 'Invertir', cssFilter: 'invert(100%)', icon: '��' }
   ], []);
 
   // Configuración de WebRTC mejorada
@@ -154,22 +120,6 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
       }
     }
   }, [currentFilter, videoFilters]);
-
-  // Aplicar efecto al video local
-  useEffect(() => {
-    if (localVideoRef.current) {
-      // Remover efecto anterior
-      videoEffects.forEach(effect => {
-        effect.remove(localVideoRef.current!);
-      });
-
-      // Aplicar nuevo efecto
-      const effect = videoEffects.find(e => e.id === currentEffect);
-      if (effect && currentEffect !== 'none') {
-        effect.apply(localVideoRef.current);
-      }
-    }
-  }, [currentEffect, videoEffects]);
 
   // Monitorear calidad de conexión
   const monitorConnectionQuality = useCallback(async () => {
@@ -265,7 +215,6 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
 
   const resetAll = () => {
     setCurrentFilter('none');
-    setCurrentEffect('none');
   };
 
   const invertCamera = async () => {
@@ -308,7 +257,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
           {/* Columna de videos */}
           <div className="space-y-6 flex flex-col justify-center">
             {/* Video Local */}
-            <div className={`bg-gray-800/80 rounded-2xl overflow-hidden relative border-2 border-blue-700/40 shadow-lg transition-all duration-300 ${currentEffect !== 'none' ? 'ring-4 ring-blue-400 animate-pulse-slow' : ''}`}>
+            <div className={`bg-gray-800/80 rounded-2xl overflow-hidden relative border-2 border-blue-700/40 shadow-lg transition-all duration-300`}>
               <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-56 md:h-64 object-cover transition-all duration-300" style={{ filter: videoFilters.find(f => f.id === currentFilter)?.cssFilter }} />
               <div className="absolute top-2 left-2 bg-blue-700/80 px-3 py-1 rounded-lg text-xs font-semibold shadow">Tu Cámara</div>
             </div>
