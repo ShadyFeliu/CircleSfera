@@ -4,9 +4,7 @@ import './main.css'
 import { ThemeProvider } from '../components/ThemeProvider'
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Script from "next/script";
-import Header from "@/components/Header";
-import SocketStatus from "@/components/SocketStatus";
-import { usePathname } from 'next/navigation';
+import AppFrame from "@/components/AppFrame";
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -36,26 +34,6 @@ export const viewport = {
   userScalable: 'no',
 };
 
-function LayoutContent({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const isLanding = pathname === '/';
-  return (
-    <>
-      {!isLanding && <Header />}
-      {children}
-      {!isLanding && <SocketStatus />}
-      {/* Botón flotante de acceso a la guía de estilos */}
-      <a
-        href="/styleguide"
-        target="_self"
-        className="fixed z-50 bottom-6 left-6 md:left-auto md:right-6 bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 text-white font-bold px-4 py-2 md:px-5 md:py-3 rounded-full shadow-lg opacity-80 hover:opacity-100 transition-all text-xs md:text-base"
-        style={{textDecoration: 'none'}}>
-        🎨 Guía de Estilos
-      </a>
-    </>
-  );
-}
-
 export default function RootLayout({
   children,
 }: {
@@ -79,7 +57,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
         <ErrorBoundary>
-          <LayoutContent>{children}</LayoutContent>
+          <AppFrame>{children}</AppFrame>
         </ErrorBoundary>
         </ThemeProvider>
         
