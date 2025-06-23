@@ -52,6 +52,15 @@ export default function RootLayout({
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
+        {/* Botón flotante de acceso a la guía de estilos */}
+        <a
+          href="/styleguide"
+          target="_self"
+          className="fixed z-50 bottom-6 right-6 bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 text-white font-bold px-5 py-3 rounded-full shadow-lg opacity-80 hover:opacity-100 transition-all text-sm md:text-base"
+          style={{textDecoration: 'none'}}
+        >
+          🎨 Guía de Estilos
+        </a>
         </ThemeProvider>
         
         {/* Error Monitoring */}
