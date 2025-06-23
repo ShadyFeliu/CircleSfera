@@ -137,7 +137,7 @@ export const AdvancedPreferences: React.FC<AdvancedPreferencesProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`flex items-center px-6 py-3 font-medium border-b-2 transition-colors ${
+              className={`flex items-center px-2 py-2 text-xs font-medium border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'

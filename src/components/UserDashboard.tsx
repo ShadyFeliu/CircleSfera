@@ -129,43 +129,43 @@ export const UserDashboard: React.FC = () => {
         {activeTab === 'overview' && (
           <div className="space-y-8">
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 shadow-2xl border border-blue-500">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-blue-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-blue-100 text-sm font-medium">Conexiones Totales</p>
-                    <p className="text-3xl font-bold text-white">{dashboardStats.totalConnections}</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{dashboardStats.totalConnections}</p>
                   </div>
                   <div className="text-4xl">👥</div>
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-6 shadow-2xl border border-green-500">
+              <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-green-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-green-100 text-sm font-medium">Tiempo Total</p>
-                    <p className="text-3xl font-bold text-white">{formatTime(dashboardStats.totalTime)}</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{formatTime(dashboardStats.totalTime)}</p>
                   </div>
                   <div className="text-4xl">⏱️</div>
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-2xl p-6 shadow-2xl border border-purple-500">
+              <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-purple-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-purple-100 text-sm font-medium">Tiempo Promedio</p>
-                    <p className="text-3xl font-bold text-white">{dashboardStats.averageSessionTime}m</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{dashboardStats.averageSessionTime}m</p>
                     <p className="text-purple-200 text-xs">por sesión</p>
                   </div>
                   <div className="text-4xl">📅</div>
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-2xl p-6 shadow-2xl border border-orange-500">
+              <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-orange-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-orange-100 text-sm font-medium">Hora Favorita</p>
-                    <p className="text-2xl font-bold text-white">{dashboardStats.favoriteTime}</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{dashboardStats.favoriteTime}</p>
                   </div>
                   <div className="text-4xl">🕐</div>
                 </div>
@@ -274,42 +274,42 @@ export const UserDashboard: React.FC = () => {
         {activeTab === 'analytics' && (
           <div className="space-y-8">
             {/* Estadísticas Avanzadas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-6 shadow-2xl border border-indigo-500">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-indigo-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-indigo-100 text-sm font-medium">Conexiones Hoy</p>
-                    <p className="text-3xl font-bold text-white">{dashboardStats.connectionsToday}</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{dashboardStats.connectionsToday}</p>
                   </div>
                   <div className="text-4xl">📅</div>
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-teal-600 to-teal-700 rounded-2xl p-6 shadow-2xl border border-teal-500">
+              <div className="bg-gradient-to-br from-teal-600 to-teal-700 rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-teal-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-teal-100 text-sm font-medium">Esta Semana</p>
-                    <p className="text-3xl font-bold text-white">{dashboardStats.connectionsThisWeek}</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{dashboardStats.connectionsThisWeek}</p>
                   </div>
                   <div className="text-4xl">📊</div>
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-pink-600 to-pink-700 rounded-2xl p-6 shadow-2xl border border-pink-500">
+              <div className="bg-gradient-to-br from-pink-600 to-pink-700 rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-pink-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-pink-100 text-sm font-medium">Este Mes</p>
-                    <p className="text-3xl font-bold text-white">{dashboardStats.connectionsThisMonth}</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{dashboardStats.connectionsThisMonth}</p>
                   </div>
                   <div className="text-4xl">📈</div>
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-2xl p-6 shadow-2xl border border-yellow-500">
+              <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl border border-yellow-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-yellow-100 text-sm font-medium">Tiempo Total</p>
-                    <p className="text-2xl font-bold text-white">{formatTime(dashboardStats.totalTime)}</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{formatTime(dashboardStats.totalTime)}</p>
                   </div>
                   <div className="text-4xl">⏱️</div>
                 </div>

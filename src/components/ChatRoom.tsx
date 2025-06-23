@@ -924,391 +924,368 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 relative">
-        {(connectionStatus === "error" || connectionStatus === "banned") && <ConnectionErrorMessage />}
-        
-        {/* Contenedor principal de video - Mejorado */}
-        <div className={`flex-1 flex flex-col ${useEnhancedWebRTC ? 'hidden' : ''}`}>
-          <div className="w-full h-[60vh] lg:h-[70vh] bg-gradient-to-br from-black to-gray-900 rounded-2xl overflow-hidden relative video-container shadow-2xl border border-gray-700">
-            <video 
-              ref={partnerVideo} 
-              autoPlay 
-              playsInline
-              className="w-full h-full object-cover relative z-0" 
-            />
-            <video 
-              ref={myVideo} 
-              autoPlay 
-              muted 
-              playsInline
-              className={`w-32 h-32 lg:w-48 lg:h-48 absolute right-4 lg:right-6 bottom-4 lg:bottom-6 rounded-xl object-cover ring-4 ring-gray-700 transition-all duration-300 shadow-lg z-50 ${myFilter} transform-gpu`} 
-            />
-            
-            {/* Overlay de estado - Mejorado */}
-            <div className="absolute top-4 lg:top-6 left-4 lg:left-6 bg-black bg-opacity-70 backdrop-blur-sm text-white p-3 lg:p-4 rounded-xl animate-fade-in z-10 text-sm lg:text-base font-medium border border-gray-600">
-              {status}
-              {status.includes("Error") && status.includes("cámara") && (
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={requestCameraPermissions}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs transition-colors"
-                  >
-                    Permitir Cámara + Mic
-                  </button>
-                  <button
-                    onClick={forceCameraOnly}
-                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-xs transition-colors"
-                  >
-                    Solo Cámara
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {/* Indicador de usuarios online - Mejorado */}
-            <div className="absolute top-4 lg:top-6 right-4 lg:right-6 bg-gradient-to-r from-green-600 to-green-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base animate-fade-in z-10 font-medium shadow-lg">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                <span>{onlineUsers} online</span>
-              </div>
-            </div>
-
-            {/* Indicador de calidad de conexión - Mejorado */}
-            <div className="absolute top-16 lg:top-20 right-4 lg:right-6 bg-black bg-opacity-70 backdrop-blur-sm text-white p-3 lg:p-4 rounded-xl connection-indicator z-10 border border-gray-600">
-              <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${connectionQuality === 'excellent' ? 'bg-green-500 animate-pulse' : connectionQuality === 'good' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-                <span className="text-sm hidden sm:inline font-medium">
-                  {connectionQuality === 'excellent' ? 'Excelente' : connectionQuality === 'good' ? 'Buena' : 'Mala'} conexión
-                </span>
-              </div>
-            </div>
-
-            {/* Indicadores de estado del compañero - Mejorado */}
-            <div className="absolute top-4 lg:top-6 left-1/2 transform -translate-x-1/2 flex space-x-2 lg:space-x-3 z-10">
-              {isPartnerMuted && (
-                <div className="bg-red-600 text-white px-3 py-2 rounded-xl animate-fade-in text-sm font-medium shadow-lg border border-red-500">
-                  🔇 Silenciado
-                </div>
-              )}
-              
-              {isPartnerVideoOff && (
-                <div className="bg-gray-600 text-white px-3 py-2 rounded-xl animate-fade-in text-sm font-medium shadow-lg border border-gray-500">
-                  📹 Sin video
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Controles principales - Mejorados */}
-          <div className="mt-6 flex flex-wrap justify-center items-center gap-3 lg:gap-4 p-4 bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl border border-gray-700">
-            {/* Filtros - Mejorados */}
-            <div className="flex flex-wrap gap-2 lg:gap-3">
-              <button onClick={() => setMyFilter('')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Normal</button>
-              <button onClick={() => setMyFilter('grayscale')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">B&N</button>
-              <button onClick={() => setMyFilter('sepia')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Sepia</button>
-              <button onClick={() => setMyFilter('invert')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Invertir</button>
-            </div>
-            
-            {/* Controles de audio/video - Mejorados */}
-            <button 
-              onClick={toggleMute} 
-              className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${isMuted ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-green-600 hover:bg-green-700 border-green-500'} text-white border`}
-            >
-              {isMuted ? '🔇' : '🔊'}
-            </button>
-            
-            <button 
-              onClick={toggleVideo} 
-              aria-label="Activar/desactivar video"
-              className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${isVideoOff ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-green-600 hover:bg-green-700 border-green-500'} text-white border`}
-            >
-              {isVideoOff ? '📹' : '📷'}
-            </button>
-
-            <button onClick={handleNextChat} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-2 lg:py-3 px-6 lg:px-8 rounded-xl text-base lg:text-lg transition-all duration-200 transform hover:scale-105 shadow-lg border border-blue-500">
-              Siguiente
-            </button>
-
-            {/* Nuevas funcionalidades - Mejoradas */}
-            <button 
-              onClick={() => setShowThemeSettings(true)}
-              className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-indigo-500"
-              title="Personalizar tema"
-            >
-              🎨
-            </button>
-
-            <button 
-              onClick={() => setShowDashboard(true)}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-purple-500"
-              title="Mi Dashboard"
-            >
-              📊
-            </button>
-
-            <button 
-              onClick={() => setShowPreferences(true)}
-              className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-orange-500"
-              title="Preferencias"
-            >
-              ⚙️
-            </button>
-
-            <button 
-              onClick={() => setShowSocialSharing(true)}
-              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-green-500"
-              title="Compartir"
-            >
-              📤
-            </button>
-
-            <button 
-              onClick={() => setUseEnhancedWebRTC(!useEnhancedWebRTC)}
-              className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${
-                useEnhancedWebRTC ? 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 border-teal-500' : 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 border-gray-500'
-              } text-white border`}
-              title="WebRTC Avanzado"
-            >
-              ⚡
-            </button>
-
-            <button 
-              onClick={() => setShowReportModal(true)} 
-              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-red-500"
-            >
-              Reportar
-            </button>
-
-            <button 
-              onClick={() => setShowScreenRecorder(!showScreenRecorder)} 
-              disabled={connectionStatus !== 'connected'}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              🎥
-            </button>
-          </div>
-
-          {/* Grabador de pantalla */}
-          {showScreenRecorder && (
-            <div className="mt-6">
-              <ScreenRecorder />
-            </div>
-          )}
-
-          <VideoEffectsBar
-            currentEffect={currentEffect}
-            setCurrentEffect={setCurrentEffect}
-            videoEffects={[
-              { id: 'mirror', name: 'Espejo', icon: '🪞' },
-              { id: 'zoom', name: 'Zoom', icon: '🔍' },
-              { id: 'rotate', name: 'Rotar', icon: '🔄' },
-            ]}
+    <div className="w-full min-h-screen flex flex-col md:flex-row gap-4 md:gap-8 p-2 sm:p-4 md:p-8 bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
+      <div className="flex-1 flex flex-col gap-4">
+        <div className="w-full h-[60vh] lg:h-[70vh] bg-gradient-to-br from-black to-gray-900 rounded-2xl overflow-hidden relative video-container shadow-2xl border border-gray-700">
+          <video 
+            ref={partnerVideo} 
+            autoPlay 
+            playsInline
+            className="w-full h-full object-cover relative z-0" 
           />
-        </div>
-
-        {/* Panel de chat - Mejorado */}
-        <div className={`w-full lg:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 lg:p-6 flex flex-col h-[50vh] lg:h-[70vh] shadow-2xl border border-gray-700 ${useEnhancedWebRTC ? 'hidden' : ''}`}>
-          <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">Chat</h2>
+          <video 
+            ref={myVideo} 
+            autoPlay 
+            muted 
+            playsInline
+            className={`w-32 h-32 lg:w-48 lg:h-48 absolute right-4 lg:right-6 bottom-4 lg:bottom-6 rounded-xl object-cover ring-4 ring-gray-700 transition-all duration-300 shadow-lg z-50 ${myFilter} transform-gpu`} 
+          />
           
-          <div className="flex-grow overflow-y-auto mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-xl custom-scrollbar border border-gray-600">
-            {messages.map((message, index) => (
-              <div key={index} className={`mb-3 ${message.author === "me" ? "text-right" : "text-left"}`}>
-                <div className={`inline-block p-3 lg:p-4 rounded-2xl max-w-[85%] lg:max-w-sm shadow-lg ${
-                  message.author === "me" 
-                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white" 
-                    : "bg-gradient-to-r from-gray-600 to-gray-700 text-white"
-                }`}>
-                  {message.type === "image" && message.imageUrl && (
-                    <Image 
-                      src={message.imageUrl} 
-                      alt="Imagen compartida" 
-                      width={150} 
-                      height={100}
-                      className="rounded-lg mb-2 w-full"
-                    />
-                  )}
-                  <p className="text-sm lg:text-base">{message.text}</p>
-                  <p className="text-xs opacity-70 mt-2">{formatTime(message.timestamp)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="h-8">
-            {isPartnerTyping && (
-              <div className="typing-indicator">
-                <span className="text-sm lg:text-base text-gray-400 italic">El compañero está escribiendo</span>
-                <div className="typing-dot"></div>
-                <div className="typing-dot"></div>
-                <div className="typing-dot"></div>
+          <div className="absolute top-4 lg:top-6 left-4 lg:left-6 bg-black bg-opacity-70 backdrop-blur-sm text-white p-3 lg:p-4 rounded-xl animate-fade-in z-10 text-sm lg:text-base font-medium border border-gray-600">
+            {status}
+            {status.includes("Error") && status.includes("cámara") && (
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={requestCameraPermissions}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs transition-colors"
+                >
+                  Permitir Cámara + Mic
+                </button>
+                <button
+                  onClick={forceCameraOnly}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-xs transition-colors"
+                >
+                  Solo Cámara
+                </button>
               </div>
             )}
           </div>
-
-          {/* Controles de chat - Mejorados */}
-          <div className="flex space-x-2 lg:space-x-3 mb-4">
-            <button 
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
-              className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
-            >
-              😀
-            </button>
-            <button 
-              onClick={() => fileInputRef.current?.click()} 
-              aria-label="Enviar imagen"
-              className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
-            >
-              📷
-            </button>
-            <input 
-              ref={fileInputRef}
-              type="file" 
-              accept="image/*" 
-              onChange={handleImageUpload} 
-              className="hidden" 
-            />
+          
+          <div className="absolute top-4 lg:top-6 right-4 lg:right-6 bg-gradient-to-r from-green-600 to-green-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base animate-fade-in z-10 font-medium shadow-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <span>{onlineUsers} online</span>
+            </div>
           </div>
 
-          {/* Selector de emojis - Mejorado */}
-          {showEmojiPicker && (
-            <div className="bg-gray-700 bg-opacity-80 backdrop-blur-sm p-3 lg:p-4 rounded-xl mb-4 emoji-grid border border-gray-600">
-              {emojis.map((emoji, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSendEmoji(emoji)}
-                  className="emoji-button text-base lg:text-lg hover:scale-125 transition-transform duration-200"
-                >
-                  {emoji}
-                </button>
-              ))}
+          <div className="absolute top-16 lg:top-20 right-4 lg:right-6 bg-black bg-opacity-70 backdrop-blur-sm text-white p-3 lg:p-4 rounded-xl connection-indicator z-10 border border-gray-600">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${connectionQuality === 'excellent' ? 'bg-green-500 animate-pulse' : connectionQuality === 'good' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+              <span className="text-sm hidden sm:inline font-medium">
+                {connectionQuality === 'excellent' ? 'Excelente' : connectionQuality === 'good' ? 'Buena' : 'Mala'} conexión
+              </span>
             </div>
-          )}
+          </div>
 
-          {/* Formulario de mensaje - Mejorado */}
-          <form onSubmit={handleSendMessage} className="flex space-x-2 lg:space-x-3">
-            <input 
-              ref={messageInputRef}
-              type="text"
-              name="message" 
-              placeholder="Escribe un mensaje..." 
-              onInput={handleTyping}
-              className="flex-1 bg-gray-700 bg-opacity-80 backdrop-blur-sm text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600 placeholder-gray-400"
-            />
-            <button
-              type="submit"
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-blue-500"
-            >
-              Enviar
-            </button>
-          </form>
+          <div className="absolute top-4 lg:top-6 left-1/2 transform -translate-x-1/2 flex space-x-2 lg:space-x-3 z-10">
+            {isPartnerMuted && (
+              <div className="bg-red-600 text-white px-3 py-2 rounded-xl animate-fade-in text-sm font-medium shadow-lg border border-red-500">
+                🔇 Silenciado
+              </div>
+            )}
+            
+            {isPartnerVideoOff && (
+              <div className="bg-gray-600 text-white px-3 py-2 rounded-xl animate-fade-in text-sm font-medium shadow-lg border border-gray-500">
+                📹 Sin video
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Modal de reporte */}
-        {showReportModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 p-4">
-            <div className="bg-gray-800 p-4 lg:p-6 rounded-lg max-w-sm w-full">
-              <h3 className="text-lg lg:text-xl font-bold mb-4">Reportar Usuario</h3>
-              <div className="space-y-2">
-                {["Contenido inapropiado", "Comportamiento abusivo", "Spam", "Otro"].map((reason) => (
-                <button 
-                    key={reason}
-                    onClick={() => reportUser(reason)}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
-                >
-                    {reason}
-                </button>
-                ))}
-              </div>
-                <button 
-                onClick={() => setShowReportModal(false)}
-                className="w-full mt-4 bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
-                >
-                Cancelar
-                </button>
-            </div>
+        <div className="mt-6 flex flex-wrap justify-center items-center gap-3 lg:gap-4 p-4 bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-2xl border border-gray-700">
+          <div className="flex flex-wrap gap-2 lg:gap-3">
+            <button onClick={() => setMyFilter('')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Normal</button>
+            <button onClick={() => setMyFilter('grayscale')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">B&N</button>
+            <button onClick={() => setMyFilter('sepia')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Sepia</button>
+            <button onClick={() => setMyFilter('invert')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-600">Invertir</button>
+          </div>
+          
+          <button 
+            onClick={toggleMute} 
+            className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${isMuted ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-green-600 hover:bg-green-700 border-green-500'} text-white border`}
+          >
+            {isMuted ? '🔇' : '🔊'}
+          </button>
+          
+          <button 
+            onClick={toggleVideo} 
+            aria-label="Activar/desactivar video"
+            className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${isVideoOff ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-green-600 hover:bg-green-700 border-green-500'} text-white border`}
+          >
+            {isVideoOff ? '📹' : '📷'}
+          </button>
+
+          <button onClick={handleNextChat} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-2 lg:py-3 px-6 lg:px-8 rounded-xl text-base lg:text-lg transition-all duration-200 transform hover:scale-105 shadow-lg border border-blue-500">
+            Siguiente
+          </button>
+
+          <button 
+            onClick={() => setShowThemeSettings(true)}
+            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-indigo-500"
+            title="Personalizar tema"
+          >
+            ��
+          </button>
+
+          <button 
+            onClick={() => setShowDashboard(true)}
+            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-purple-500"
+            title="Mi Dashboard"
+          >
+            📊
+          </button>
+
+          <button 
+            onClick={() => setShowPreferences(true)}
+            className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-orange-500"
+            title="Preferencias"
+          >
+            ⚙️
+          </button>
+
+          <button 
+            onClick={() => setShowSocialSharing(true)}
+            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-green-500"
+            title="Compartir"
+          >
+            📤
+          </button>
+
+          <button 
+            onClick={() => setUseEnhancedWebRTC(!useEnhancedWebRTC)}
+            className={`font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg ${
+              useEnhancedWebRTC ? 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 border-teal-500' : 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 border-gray-500'
+            } text-white border`}
+            title="WebRTC Avanzado"
+          >
+            ⚡
+          </button>
+
+          <button 
+            onClick={() => setShowReportModal(true)} 
+            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-red-500"
+          >
+            Reportar
+          </button>
+
+          <button 
+            onClick={() => setShowScreenRecorder(!showScreenRecorder)} 
+            disabled={connectionStatus !== 'connected'}
+            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            🎥
+          </button>
+        </div>
+
+        {showScreenRecorder && (
+          <div className="mt-6">
+            <ScreenRecorder />
           </div>
         )}
 
-        {/* Modales de nuevas funcionalidades */}
-        <ThemeSettings 
-          isOpen={showThemeSettings} 
-          onClose={() => setShowThemeSettings(false)} 
+        <VideoEffectsBar
+          currentEffect={currentEffect}
+          setCurrentEffect={setCurrentEffect}
+          videoEffects={[
+            { id: 'mirror', name: 'Espejo', icon: '🪞' },
+            { id: 'zoom', name: 'Zoom', icon: '🔍' },
+            { id: 'rotate', name: 'Rotar', icon: '🔄' },
+          ]}
         />
-
-        {showDashboard && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-75">
-            <UserDashboard />
-            <button 
-              onClick={() => setShowDashboard(false)}
-              className="fixed top-6 right-6 bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full z-50 shadow-lg border border-gray-600 transition-all duration-200 hover:scale-110"
-              title="Cerrar Dashboard"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        <AdvancedPreferences 
-          isOpen={showPreferences} 
-          onClose={() => setShowPreferences(false)}
-          onSave={(preferences) => {
-            setUserPreferences(preferences);
-            console.log('Preferencias guardadas:', preferences);
-          }}
-        />
-
-        <SocialSharing 
-          isOpen={showSocialSharing} 
-          onClose={() => setShowSocialSharing(false)}
-          shareData={{
-            title: 'CircleSfera - Conecta con el Mundo',
-            description: '¡Acabo de tener una gran conversación en CircleSfera! Únete y conoce personas increíbles.',
-            url: 'https://circlesfera.vercel.app',
-            image: '/og-image.jpg'
-          }}
-        />
-
-        {/* WebRTC Mejorado */}
-        {useEnhancedWebRTC && myStreamRef.current && (
-          <div className="fixed inset-0 z-[9999] bg-black bg-opacity-75 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
-              <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  WebRTC Avanzado
-                </h2>
-                <button 
-                  onClick={() => setUseEnhancedWebRTC(false)}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
-                <EnhancedWebRTC
-                  stream={myStreamRef.current}
-                  partnerStream={partnerStreamRef}
-                  onStream={(stream) => {
-                    // No asignar el stream del compañero al video principal cuando está activo el WebRTC Avanzado
-                    // Esto evita la duplicación de streams
-                    console.log('Stream del compañero recibido en WebRTC Avanzado');
-                  }}
-                  onConnectionChange={(connected) => {
-                    setConnectionStatus(connected ? 'connected' : 'disconnected');
-                  }}
-                  onQualityChange={(quality) => {
-                    setConnectionQuality(quality);
-                  }}
-                  isInitiator={false}
-                  signalData={null}
-                  onSignal={() => {}}
-                  onClose={() => setUseEnhancedWebRTC(false)}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      <div className={`w-full md:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col h-[45vh] sm:h-[50vh] md:h-[70vh] shadow-2xl border border-gray-700 ${useEnhancedWebRTC ? 'hidden' : ''}`}>
+        <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">Chat</h2>
+        
+        <div className="flex-grow overflow-y-auto mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-xl custom-scrollbar border border-gray-600">
+          {messages.map((message, index) => (
+            <div key={index} className={`mb-3 ${message.author === "me" ? "text-right" : "text-left"}`}>
+              <div className={`inline-block p-3 lg:p-4 rounded-2xl max-w-[85%] lg:max-w-sm shadow-lg ${
+                message.author === "me" 
+                  ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white" 
+                  : "bg-gradient-to-r from-gray-600 to-gray-700 text-white"
+              }`}>
+                {message.type === "image" && message.imageUrl && (
+                  <Image 
+                    src={message.imageUrl} 
+                    alt="Imagen compartida" 
+                    width={150} 
+                    height={100}
+                    className="rounded-lg mb-2 w-full"
+                  />
+                )}
+                <p className="text-sm lg:text-base">{message.text}</p>
+                <p className="text-xs opacity-70 mt-2">{formatTime(message.timestamp)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="h-8">
+          {isPartnerTyping && (
+            <div className="typing-indicator">
+              <span className="text-sm lg:text-base text-gray-400 italic">El compañero está escribiendo</span>
+              <div className="typing-dot"></div>
+              <div className="typing-dot"></div>
+              <div className="typing-dot"></div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex space-x-2 lg:space-x-3 mb-4">
+          <button 
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+            className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
+          >
+            😀
+          </button>
+          <button 
+            onClick={() => fileInputRef.current?.click()} 
+            aria-label="Enviar imagen"
+            className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
+          >
+            📷
+          </button>
+          <input 
+            ref={fileInputRef}
+            type="file" 
+            accept="image/*" 
+            onChange={handleImageUpload} 
+            className="hidden" 
+          />
+        </div>
+
+        {showEmojiPicker && (
+          <div className="bg-gray-700 bg-opacity-80 backdrop-blur-sm p-3 lg:p-4 rounded-xl mb-4 emoji-grid border border-gray-600">
+            {emojis.map((emoji, index) => (
+              <button
+                key={index}
+                onClick={() => handleSendEmoji(emoji)}
+                className="emoji-button text-base lg:text-lg hover:scale-125 transition-transform duration-200"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleSendMessage} className="flex space-x-2 lg:space-x-3">
+          <input 
+            ref={messageInputRef}
+            type="text"
+            name="message" 
+            placeholder="Escribe un mensaje..." 
+            onInput={handleTyping}
+            className="flex-1 bg-gray-700 bg-opacity-80 backdrop-blur-sm text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600 placeholder-gray-400"
+          />
+          <button
+            type="submit"
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-blue-500"
+          >
+            Enviar
+          </button>
+        </form>
+      </div>
+
+      {showReportModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 p-4">
+          <div className="bg-gray-800 p-4 lg:p-6 rounded-lg max-w-sm w-full">
+            <h3 className="text-lg lg:text-xl font-bold mb-4">Reportar Usuario</h3>
+            <div className="space-y-2">
+              {["Contenido inapropiado", "Comportamiento abusivo", "Spam", "Otro"].map((reason) => (
+              <button 
+                  key={reason}
+                  onClick={() => reportUser(reason)}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
+              >
+                  {reason}
+              </button>
+              ))}
+            </div>
+              <button 
+              onClick={() => setShowReportModal(false)}
+              className="w-full mt-4 bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded text-sm lg:text-base transition-colors"
+              >
+              Cancelar
+              </button>
+          </div>
+        </div>
+      )}
+
+      <ThemeSettings 
+        isOpen={showThemeSettings} 
+        onClose={() => setShowThemeSettings(false)} 
+      />
+
+      {showDashboard && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-75">
+          <UserDashboard />
+          <button 
+            onClick={() => setShowDashboard(false)}
+            className="fixed top-6 right-6 bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full z-50 shadow-lg border border-gray-600 transition-all duration-200 hover:scale-110"
+            title="Cerrar Dashboard"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <AdvancedPreferences 
+        isOpen={showPreferences} 
+        onClose={() => setShowPreferences(false)}
+        onSave={(preferences) => {
+          setUserPreferences(preferences);
+          console.log('Preferencias guardadas:', preferences);
+        }}
+      />
+
+      <SocialSharing 
+        isOpen={showSocialSharing} 
+        onClose={() => setShowSocialSharing(false)}
+        shareData={{
+          title: 'CircleSfera - Conecta con el Mundo',
+          description: '¡Acabo de tener una gran conversación en CircleSfera! Únete y conoce personas increíbles.',
+          url: 'https://circlesfera.vercel.app',
+          image: '/og-image.jpg'
+        }}
+      />
+
+      {useEnhancedWebRTC && myStreamRef.current && (
+        <div className="fixed inset-0 z-[9999] bg-black bg-opacity-75 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                WebRTC Avanzado
+              </h2>
+              <button 
+                onClick={() => setUseEnhancedWebRTC(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <EnhancedWebRTC
+                stream={myStreamRef.current}
+                partnerStream={partnerStreamRef}
+                onStream={(stream) => {
+                  console.log('Stream del compañero recibido en WebRTC Avanzado');
+                }}
+                onConnectionChange={(connected) => {
+                  setConnectionStatus(connected ? 'connected' : 'disconnected');
+                }}
+                onQualityChange={(quality) => {
+                  setConnectionQuality(quality);
+                }}
+                isInitiator={false}
+                signalData={null}
+                onSignal={() => {}}
+                onClose={() => setUseEnhancedWebRTC(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

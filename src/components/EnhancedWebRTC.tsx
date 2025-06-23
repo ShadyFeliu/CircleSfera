@@ -253,7 +253,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8 p-6 md:p-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4 p-2 sm:p-4 md:p-6">
           {/* Columna de videos */}
           <div className="space-y-6 flex flex-col justify-center">
             {/* Video Local */}
@@ -297,8 +297,8 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
           {/* Columna de Controles */}
           <div className="flex flex-col space-y-6 justify-center">
             {/* Estadísticas de Conexión */}
-            <div className="bg-gray-800/80 p-6 rounded-2xl shadow border border-gray-700 flex flex-col gap-2">
-              <h3 className="font-bold mb-2 text-lg flex items-center gap-2">📊 Estadísticas</h3>
+            <div className="bg-gray-800/80 p-2 sm:p-4 md:p-6 rounded-2xl shadow border border-gray-700 flex flex-col gap-2">
+              <h3 className="font-bold mb-2 text-lg sm:text-xl md:text-2xl flex items-center gap-2">📊 Estadísticas</h3>
               <div className="flex flex-wrap gap-3 text-sm">
                 <span className={`px-3 py-1 rounded-full font-semibold shadow ${connectionStats.rtt < 100 ? 'bg-green-700/80' : connectionStats.rtt < 300 ? 'bg-yellow-700/80' : 'bg-red-700/80'}`}>RTT: {connectionStats.rtt.toFixed(0)} ms</span>
                 <span className={`px-3 py-1 rounded-full font-semibold shadow ${connectionStats.packetsLost < 5 ? 'bg-green-700/80' : connectionStats.packetsLost < 20 ? 'bg-yellow-700/80' : 'bg-red-700/80'}`}>Pérdida: {connectionStats.packetsLost}</span>
@@ -316,7 +316,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
                 <span>{showControls ? 'Ocultar' : 'Mostrar'} Controles Avanzados</span>
               </button>
               {showControls && (
-                <div className="mt-6 space-y-6 bg-gray-900/80 p-6 rounded-2xl animate-fade-in shadow border border-gray-700">
+                <div className="mt-6 space-y-6 bg-gray-900/80 p-2 sm:p-4 md:p-6 rounded-2xl animate-fade-in shadow border border-gray-700">
                   {/* Filtros */}
                   <div>
                     <h4 className="font-semibold mb-2 flex items-center gap-2">🎨 Filtros</h4>
