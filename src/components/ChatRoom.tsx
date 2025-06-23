@@ -1236,10 +1236,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           />
         </div>
 
-        <div className={`w-full md:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col h-[45vh] sm:h-[50vh] md:h-[70vh] shadow-2xl border border-gray-700 ${useEnhancedWebRTC ? 'hidden' : ''} mx-auto`}>
-          <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">Chat</h2>
-          
-          <div className="flex-grow overflow-y-auto mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-xl custom-scrollbar border border-gray-600">
+        <div className={`flex flex-col max-w-md w-full h-[60vh] md:h-[70vh] bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-gray-700 mx-auto relative`}>
+          <h2 className="text-xl lg:text-2xl font-bold mb-2 mt-4 text-white text-center">Chat</h2>
+          <div className="flex-1 overflow-y-auto mb-2 p-3 bg-gray-700 bg-opacity-50 rounded-xl custom-scrollbar border border-gray-600">
             {messages.map((message, index) => (
               <div key={index} className={`mb-3 ${message.author === "me" ? "text-right" : "text-left"} ${messageAnimation}`}>
                 <div className={`inline-block p-3 lg:p-4 rounded-2xl max-w-[85%] lg:max-w-sm shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95 ${
@@ -1264,11 +1263,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
                 </div>
               </div>
             ))}
-          </div>
-          
-          <div className="h-8">
             {isPartnerTyping && (
-              <div className="typing-indicator">
+              <div className="typing-indicator mt-2">
                 <span className="text-sm lg:text-base text-gray-400 italic">El compañero está escribiendo</span>
                 <div className="typing-dot"></div>
                 <div className="typing-dot"></div>
@@ -1276,15 +1272,30 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               </div>
             )}
           </div>
-
-          <div className="flex space-x-2 lg:space-x-3 mb-4">
+          {/* Reacciones rápidas */}
+          <div className="flex gap-2 justify-center flex-wrap mb-2 sticky bottom-20 z-10 bg-transparent">
+            {quickReactions.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => sendReaction(emoji)}
+                className="text-2xl md:text-3xl bg-white/10 hover:bg-white/30 rounded-full shadow-lg p-2 md:p-3 mx-1 transition-all duration-200 hover:scale-125 active:scale-95 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                aria-label={`Enviar reacción ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          {/* Input y botones */}
+          <form onSubmit={handleSendMessage} className="flex gap-2 mt-auto pb-2 sticky bottom-0 bg-gradient-to-br from-gray-800 to-gray-900 z-20 px-2">
             <button 
+              type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
               className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
             >
               😀
             </button>
             <button 
+              type="button"
               onClick={() => fileInputRef.current?.click()} 
               aria-label="Enviar imagen"
               className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-gray-500"
@@ -1298,10 +1309,19 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               onChange={handleImageUpload} 
               className="hidden" 
             />
-          </div>
-
+            <input
+              name="message"
+              type="text"
+              placeholder="Escribe un mensaje..."
+              ref={messageInputRef}
+              className="flex-1 px-3 py-2 rounded-xl bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              autoComplete="off"
+            />
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl transition-all duration-200 shadow-lg border border-blue-500">Enviar</button>
+          </form>
+          {/* Picker de emojis */}
           {showEmojiPicker && (
-            <div className="bg-gray-700 bg-opacity-80 backdrop-blur-sm p-3 lg:p-4 rounded-xl mb-4 emoji-grid border border-gray-600">
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-gray-700 bg-opacity-90 backdrop-blur-sm p-3 lg:p-4 rounded-xl mb-4 emoji-grid border border-gray-600 z-30">
               {emojis.map((emoji, index) => (
                 <button
                   key={index}
@@ -1313,23 +1333,12 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               ))}
             </div>
           )}
-
-          <form onSubmit={handleSendMessage} className="flex space-x-2 lg:space-x-3">
-            <input 
-              ref={messageInputRef}
-              type="text"
-              name="message" 
-              placeholder="Escribe un mensaje..." 
-              onInput={handleTyping}
-              className="flex-1 bg-gray-700 bg-opacity-80 backdrop-blur-sm text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600 placeholder-gray-400"
-            />
-            <button
-              type="submit"
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-blue-500"
-            >
-              Enviar
-            </button>
-          </form>
+          {/* Overlay de reacción animada sobre el video del compañero */}
+          {incomingReaction && (
+            <span key={reactionKey} className={reactionAnimation} style={{ left: '50%', top: '35%' }}>
+              {incomingReaction}
+            </span>
+          )}
         </div>
 
         {showReportModal && (
@@ -1442,27 +1451,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             {renderWebRTCQuality()}
             {renderWebRTCMetrics()}
           </div>
-        )}
-
-        {/* Panel de reacciones rápidas */}
-        <div className="flex gap-2 justify-center mt-2 mb-2 flex-wrap">
-          {quickReactions.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => sendReaction(emoji)}
-              className="text-2xl md:text-3xl bg-white/10 hover:bg-white/30 rounded-full shadow-lg p-2 md:p-3 mx-1 transition-all duration-200 hover:scale-125 active:scale-95 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              aria-label={`Enviar reacción ${emoji}`}
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-
-        {/* Overlay de reacción animada sobre el video del compañero */}
-        {incomingReaction && (
-          <span key={reactionKey} className={reactionAnimation} style={{ left: '50%', top: '35%' }}>
-            {incomingReaction}
-          </span>
         )}
       </div>
     </div>
