@@ -1058,7 +1058,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, [peer]);
 
   return (
-    <>
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
       {renderBackButton()}
       <div className="w-full min-h-screen flex flex-col md:flex-row gap-4 md:gap-8 p-2 sm:p-4 md:p-8 bg-gray-900">
         <div className="flex-1 flex flex-col gap-4">
@@ -1465,7 +1465,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           </span>
         )}
       </div>
-    </>
+    </div>
   );
 };
 
