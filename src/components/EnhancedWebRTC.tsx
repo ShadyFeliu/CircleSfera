@@ -331,7 +331,8 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
                   <div>
                     <h4 className="font-semibold mb-2 flex items-center gap-2">🎨 Filtros</h4>
                     <div className="flex flex-wrap gap-2">
-                      {videoFilters.map(filter => (
+                      <button onClick={() => setCurrentFilter('none')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow ${currentFilter === 'none' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>❌ Quitar filtro</button>
+                      {videoFilters.filter(f => f.id !== 'none').map(filter => (
                         <button key={filter.id} onClick={() => setCurrentFilter(filter.id)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow ${currentFilter === filter.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{filter.icon} {filter.name}</button>
                       ))}
                     </div>
@@ -340,6 +341,7 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
                   <div>
                     <h4 className="font-semibold mb-2 flex items-center gap-2">✨ Efectos</h4>
                     <div className="flex flex-wrap gap-2">
+                      <button onClick={() => setCurrentEffect('none')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow ${currentEffect === 'none' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>❌ Sin efecto</button>
                       {videoEffects.map(effect => (
                         <button key={effect.id} onClick={() => setCurrentEffect(effect.id)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow ${currentEffect === effect.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{effect.icon} {effect.name}</button>
                       ))}
