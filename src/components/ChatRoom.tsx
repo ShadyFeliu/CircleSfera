@@ -13,6 +13,7 @@ import { AdvancedPreferences } from "./AdvancedPreferences";
 import { SocialSharing } from "./SocialSharing";
 import { EnhancedWebRTC } from "./EnhancedWebRTC";
 import Image from "next/image";
+import VideoEffectsBar from "./VideoEffectsBar";
 
 type Message = {
   author: "me" | "partner";
@@ -126,6 +127,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const [useEnhancedWebRTC, setUseEnhancedWebRTC] = useState(false);
   const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
   const [partnerStreamRef, setPartnerStreamRef] = useState<MediaStream | null>(null);
+  const [currentEffect, setCurrentEffect] = useState<string>('none');
 
   const myVideo = useRef<HTMLVideoElement>(null);
   const partnerVideo = useRef<HTMLVideoElement>(null);
@@ -881,6 +883,46 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     }
   };
 
+  // Enviar efecto al compañero por WebRTC
+  useEffect(() => {
+    if (peerRef.current && peerRef.current.connected) {
+      peerRef.current.send(JSON.stringify({ type: 'effect', effect: currentEffect }));
+    }
+    // Aplica el efecto al vídeo local
+    if (myVideo.current) {
+      if (currentEffect === 'mirror') {
+        myVideo.current.style.transform = 'scaleX(-1)';
+      } else if (currentEffect === 'zoom') {
+        myVideo.current.style.transform = 'scale(1.2)';
+      } else if (currentEffect === 'rotate') {
+        myVideo.current.style.transform = 'rotate(90deg)';
+      } else {
+        myVideo.current.style.transform = 'scale(1) rotate(0deg)';
+      }
+    }
+  }, [currentEffect]);
+
+  // Aplica el efecto recibido al vídeo del compañero
+  useEffect(() => {
+    if (!peerRef.current) return;
+    peerRef.current.on('data', (data) => {
+      try {
+        const parsed = JSON.parse(data.toString());
+        if (parsed.type === 'effect' && partnerVideo.current) {
+          if (parsed.effect === 'mirror') {
+            partnerVideo.current.style.transform = 'scaleX(-1)';
+          } else if (parsed.effect === 'zoom') {
+            partnerVideo.current.style.transform = 'scale(1.2)';
+          } else if (parsed.effect === 'rotate') {
+            partnerVideo.current.style.transform = 'rotate(90deg)';
+          } else {
+            partnerVideo.current.style.transform = 'scale(1) rotate(0deg)';
+          }
+        }
+      } catch {}
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 relative">
@@ -1053,6 +1095,16 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               <ScreenRecorder />
             </div>
           )}
+
+          <VideoEffectsBar
+            currentEffect={currentEffect}
+            setCurrentEffect={setCurrentEffect}
+            videoEffects={[
+              { id: 'mirror', name: 'Espejo', icon: '🪞' },
+              { id: 'zoom', name: 'Zoom', icon: '🔍' },
+              { id: 'rotate', name: 'Rotar', icon: '🔄' },
+            ]}
+          />
         </div>
 
         {/* Panel de chat - Mejorado */}
