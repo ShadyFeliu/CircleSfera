@@ -1024,7 +1024,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-2 lg:py-3 px-4 lg:px-6 rounded-xl text-sm lg:text-base transition-all duration-200 hover:scale-105 shadow-lg border border-indigo-500"
             title="Personalizar tema"
           >
-            ��
+            🎨
           </button>
 
           <button 
