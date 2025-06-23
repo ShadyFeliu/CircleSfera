@@ -1060,7 +1060,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
       {renderBackButton()}
-      <div className="w-full min-h-screen flex flex-col md:flex-row gap-4 md:gap-8 p-2 sm:p-4 md:p-8 bg-gray-900">
+      <div className="w-full max-w-6xl flex flex-col md:flex-row gap-4 md:gap-8 p-2 sm:p-4 md:p-8 bg-gray-900 mx-auto items-center justify-center">
         <div className="flex-1 flex flex-col gap-4">
           <div className="w-full h-[60vh] lg:h-[70vh] bg-gradient-to-br from-black to-gray-900 rounded-2xl overflow-hidden relative video-container shadow-2xl border border-gray-700">
             <video 
@@ -1236,7 +1236,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           />
         </div>
 
-        <div className={`w-full md:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col h-[45vh] sm:h-[50vh] md:h-[70vh] shadow-2xl border border-gray-700 ${useEnhancedWebRTC ? 'hidden' : ''}`}>
+        <div className={`w-full md:w-96 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col h-[45vh] sm:h-[50vh] md:h-[70vh] shadow-2xl border border-gray-700 ${useEnhancedWebRTC ? 'hidden' : ''} mx-auto`}>
           <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6 text-white">Chat</h2>
           
           <div className="flex-grow overflow-y-auto mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-xl custom-scrollbar border border-gray-600">
@@ -1445,12 +1445,12 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         )}
 
         {/* Panel de reacciones rápidas */}
-        <div className="flex gap-2 justify-center mt-2 mb-2">
+        <div className="flex gap-2 justify-center mt-2 mb-2 flex-wrap">
           {quickReactions.map((emoji) => (
             <button
               key={emoji}
               onClick={() => sendReaction(emoji)}
-              className="text-2xl md:text-3xl hover:scale-125 active:scale-90 transition-transform duration-150 focus:outline-none"
+              className="text-2xl md:text-3xl bg-white/10 hover:bg-white/30 rounded-full shadow-lg p-2 md:p-3 mx-1 transition-all duration-200 hover:scale-125 active:scale-95 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400"
               aria-label={`Enviar reacción ${emoji}`}
             >
               {emoji}
