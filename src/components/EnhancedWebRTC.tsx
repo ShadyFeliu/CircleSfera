@@ -317,16 +317,6 @@ export const EnhancedWebRTC: React.FC<EnhancedWebRTCProps> = ({
               </button>
               {showControls && (
                 <div className="mt-6 space-y-6 bg-gray-900/80 p-2 sm:p-4 md:p-6 rounded-2xl animate-fade-in shadow border border-gray-700">
-                  {/* Filtros */}
-                  <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">🎨 Filtros</h4>
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={() => setCurrentFilter('none')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow ${currentFilter === 'none' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>❌ Quitar filtro</button>
-                      {videoFilters.filter(f => f.id !== 'none').map(filter => (
-                        <button key={filter.id} onClick={() => setCurrentFilter(filter.id)} tabIndex={0} title={`Filtro: ${filter.name}`} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow focus:outline-none focus:ring-2 focus:ring-blue-400 ${currentFilter === filter.id ? 'bg-blue-600 border-2 border-white' : 'bg-gray-700 hover:bg-gray-600'}`}>{filter.icon} {filter.name} {currentFilter === filter.id && <span className="ml-2 animate-bounce">✔️</span>}</button>
-                      ))}
-                    </div>
-                  </div>
                   {/* Grabación */}
                   <div>
                     <h4 className="font-semibold mb-2 flex items-center gap-2">🎬 Grabación</h4>
