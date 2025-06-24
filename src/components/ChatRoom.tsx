@@ -94,6 +94,16 @@ const ICE_SERVERS = {
 const CONNECTION_TIMEOUT = 30000; // 30 segundos
 const SIGNALING_TIMEOUT = 20000; // 20 segundos
 
+// Utilidad para obtener o generar un UUID persistente por dispositivo
+function getOrCreateDeviceId() {
+  let deviceId = localStorage.getItem('circlesfera_device_id');
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem('circlesfera_device_id', deviceId);
+  }
+  return deviceId;
+}
+
 const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: string }) => {
   // --- HOOKS AL INICIO ---
   // Estados principales
@@ -158,7 +168,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
   // Socket personalizado
-  const { socket, status: socketStatus, retries } = useSocket(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+  const { socket, status: socketStatus, retries } = useSocket();
   const socketRef = useRef<typeof socket | null>(null);
   useEffect(() => { socketRef.current = socket; }, [socket]);
 
@@ -208,18 +218,20 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     }
   }, []);
 
+  const deviceId = getOrCreateDeviceId();
+
   const startNewChat = useCallback(() => {
     if (socketRef.current?.connected) {
       console.log('Buscando nuevo compañero con intereses:', interests);
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
-      socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter });
+      socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter, deviceId });
       setConnectionStatus("waiting");
       setStatus("Buscando un compañero...");
     } else {
       console.error("No se puede iniciar un nuevo chat, el socket no está conectado.");
       // Opcionalmente, intentar reconectar o mostrar un error al usuario.
     }
-  }, [interests, ageFilter]);
+  }, [interests, ageFilter, deviceId]);
 
   const handleNextChat = useCallback(() => {
     setMessages([]);
@@ -234,51 +246,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     // Buscar nuevo compañero
     if (socketRef.current?.connected) {
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
-      socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter });
+      socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter, deviceId });
     } else {
       console.error("Socket no conectado. No se puede buscar nuevo compañero.");
     }
-  }, [interests, ageFilter]);
-
-  // Connection initialization function
-  const initializeConnection = () => {
-    setConnectionStatus("connecting");
-    
-    // URL dinámica para el servidor de señalización
-    const socketUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://api.circlesfera.com' 
-      : (process.env.NEXT_PUBLIC_SOCKET_URL || `http://${window.location.hostname}:3001`);
-    
-    // Debug: Log the URL being used
-    console.log('🔗 Socket URL:', socketUrl);
-    console.log('🌍 NODE_ENV:', process.env.NODE_ENV);
-    console.log('⚙️ NEXT_PUBLIC_SOCKET_URL:', process.env.NEXT_PUBLIC_SOCKET_URL);
-    
-    const socket = io(socketUrl);
-    socketRef.current = socket;
-    
-    // Setup socket event handlers
-    socket.on('error', (error: { message: string; code?: string }) => {
-      console.error('Socket error:', error);
-      setConnectionError({ 
-        message: error.message, 
-        code: error.code, 
-        reconnectable: error.code !== 'MAX_CONNECTIONS' 
-      });
-      setConnectionStatus("error");
-    });
-    
-    socket.on('banned', (data: { message: string }) => {
-      console.log('User banned:', data);
-      setConnectionError({ 
-        message: data.message, 
-        reconnectable: false 
-      });
-      setConnectionStatus("banned");
-    });
-    
-    return socket;
-  };
+  }, [interests, ageFilter, deviceId]);
 
   // Reconnection logic
   useEffect(() => {
@@ -287,7 +259,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         console.log(`Attempting to reconnect (${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
         setReconnectAttempts(prev => prev + 1);
         socketRef.current?.disconnect();
-        const newSocket = initializeConnection();
+        const newSocket = io(process.env.NODE_ENV === 'production' 
+          ? 'https://api.circlesfera.com' 
+          : (process.env.NEXT_PUBLIC_SOCKET_URL || `http://${window.location.hostname}:3001`));
         socketRef.current = newSocket;
       }, 5000 * (reconnectAttempts + 1)); // Exponential backoff
       
@@ -297,7 +271,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const socket = initializeConnection();
     let myStream: MediaStream | undefined;
     let isComponentMounted = true;
 
@@ -310,7 +283,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       console.log('Conectado al servidor! Buscando pareja con intereses:', interests);
       startNewChat();
       // Solicitar contador inicial
-      socket.emit('get_user_count');
+      socketRef.current?.emit('get_user_count');
     };
 
     const onUserCount = (count: number) => {
@@ -331,26 +304,26 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
     // Función para actualizar contador periódicamente
     const updateUserCount = () => {
-      if (socket.connected && isComponentMounted) {
-        socket.emit('get_user_count');
+      if (socket?.connected && isComponentMounted) {
+        socket?.emit('get_user_count');
       }
     };
 
     // Actualizar contador cada 10 segundos
     const userCountInterval = setInterval(updateUserCount, 10000);
 
-    socket.on('connect', onConnect);
-    socket.on('user_count', onUserCount);
+    socket?.on('connect', onConnect);
+    socket?.on('user_count', onUserCount);
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus("Error: La cámara no es accesible en este navegador o la página no es segura (se requiere HTTPS).");
-      socket.off('connect', onConnect);
-      socket.off('user_count', onUserCount);
-      socket.off("partner");
-      socket.off("signal");
-      socket.off("partner_disconnected");
-      socket.off("partner_muted");
-      socket.off("partner_video_off");
+      socket?.off('connect', onConnect);
+      socket?.off('user_count', onUserCount);
+      socket?.off("partner");
+      socket?.off("signal");
+      socket?.off("partner_disconnected");
+      socket?.off("partner_muted");
+      socket?.off("partner_video_off");
       
       if (myStream) {
         myStream.getTracks().forEach(track => track.stop());
@@ -527,7 +500,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           });
         };
 
-        socket.on("partner", (data: { id: string; initiator: boolean; profile?: unknown }) => { 
+        socket?.on("partner", (data: { id: string; initiator: boolean; profile?: unknown }) => { 
           if (isComponentMounted) {
             setupPeer(data.id, data.initiator);
             if (data.profile) {
@@ -538,13 +511,13 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           }
         });
         
-        socket.on("signal", (data: { from: string; signal: Peer.SignalData; }) => { 
+        socket?.on("signal", (data: { from: string; signal: Peer.SignalData; }) => { 
           if (peer && isComponentMounted) {
             peer.signal(data.signal); 
           }
         });
 
-        socket.on("partner_disconnected", () => {
+        socket?.on("partner_disconnected", () => {
           if (!isComponentMounted) return;
           
             setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
@@ -552,16 +525,16 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             peer.destroy();
           }
           const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
-          socketRef.current?.emit('find_partner', { interests: interestsArray, ageFilter });
+          socketRef.current?.emit('find_partner', { interests: interestsArray, ageFilter, deviceId });
         });
 
-        socket.on("partner_muted", (muted: boolean) => {
+        socket?.on("partner_muted", (muted: boolean) => {
           if (isComponentMounted) {
           setIsPartnerMuted(muted);
           }
         });
 
-        socket.on("partner_video_off", (videoOff: boolean) => {
+        socket?.on("partner_video_off", (videoOff: boolean) => {
           if (isComponentMounted) {
           setIsPartnerVideoOff(videoOff);
           }
@@ -597,17 +570,17 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         myStream.getTracks().forEach(track => track.stop());
       }
       
-      socket.off('connect', onConnect);
-      socket.off('user_count', onUserCount);
-      socket.off("partner");
-      socket.off("signal");
-      socket.off("partner_disconnected");
-      socket.off("partner_muted");
-      socket.off("partner_video_off");
+      socket?.off('connect', onConnect);
+      socket?.off('user_count', onUserCount);
+      socket?.off("partner");
+      socket?.off("signal");
+      socket?.off("partner_disconnected");
+      socket?.off("partner_muted");
+      socket?.off("partner_video_off");
       
-      socket.disconnect();
+      socket?.disconnect();
     };
-  }, [interests, ageFilter]);
+  }, [interests, ageFilter, deviceId]);
   
   // Efecto para manejar la restauración del stream del compañero cuando se cierra el WebRTC Avanzado
   useEffect(() => {

@@ -4,14 +4,29 @@ import io, { Socket } from 'socket.io-client';
 
 export type SocketStatus = 'connected' | 'disconnected' | 'reconnecting' | 'failed';
 
-export function useSocket(url: string, opts?: Record<string, unknown>) {
+// Utilidad para obtener la URL de señalización de forma robusta
+function getSignalingUrl() {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && process.env.NODE_ENV === 'production') {
+    return 'https://api.circlesfera.com';
+  }
+  return process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
+}
+
+export function useSocket(url?: string, opts?: Record<string, unknown>) {
+  const socketUrl = url || getSignalingUrl();
   const socketRef = useRef<Socket | null>(null);
   const [status, setStatus] = useState<SocketStatus>('disconnected');
   const [retries, setRetries] = useState(0);
   const MAX_RETRIES = 5;
 
   useEffect(() => {
-    const socket = io(url, {
+    if (!socketUrl) {
+      console.error('[useSocket] URL de señalización no definida.');
+      setStatus('failed');
+      return;
+    }
+    console.log('[useSocket] Conectando a:', socketUrl);
+    const socket = io(socketUrl, {
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: MAX_RETRIES,
@@ -52,7 +67,7 @@ export function useSocket(url: string, opts?: Record<string, unknown>) {
       socket.off('reconnect', onReconnect);
       socket.disconnect();
     };
-  }, [url, opts]);
+  }, [socketUrl, opts]);
 
   return { socket: socketRef.current, status, retries };
 } 
