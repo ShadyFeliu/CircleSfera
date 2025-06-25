@@ -360,6 +360,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus("Error: La cámara no es accesible en este navegador o la página no es segura (se requiere HTTPS).");
+      setDiagnostic("No se puede acceder a la cámara. Usa un navegador moderno y asegúrate de estar en HTTPS.");
       socket?.off('connect', onConnect);
       socket?.off('user_count', onUserCount);
       socket?.off("partner");
@@ -380,6 +381,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(stream => {
+        setDiagnostic("Cámara y micrófono detectados correctamente.");
         if (!isComponentMounted) {
           stream.getTracks().forEach(track => track.stop());
           return;
@@ -434,6 +436,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           }, 30000);
 
           peer.on('connect', () => {
+            setDiagnostic("WebRTC: ¡Conexión establecida con el compañero!");
             console.log('[WebRTC] Peer conectado');
             console.log('[WebRTC] Peer connected:', peer.connected);
             console.log('[WebRTC] Peer destroyed:', peer.destroyed);
@@ -464,6 +467,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           });
 
           peer.on('stream', (partnerStream) => {
+            setDiagnostic("WebRTC: Recibiendo video del compañero.");
             console.log('[WebRTC] Stream de compañero recibido:', partnerStream);
             console.log('[WebRTC] Stream tracks:', partnerStream.getTracks());
             console.log('[WebRTC] partnerVideo.current existe:', !!partnerVideo.current);
@@ -482,14 +486,17 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           });
 
           peer.on('iceStateChange', (state) => {
+            setDiagnostic("WebRTC: Estado ICE: " + state);
             console.log('[WebRTC] ICE state change:', state);
           });
 
           peer.on('iceCandidate', (candidate) => {
+            setDiagnostic("WebRTC: Nuevo candidato ICE intercambiado.");
             console.log('[WebRTC] ICE candidate:', candidate);
           });
 
           peer.on('close', () => {
+            setDiagnostic("WebRTC: Conexión cerrada.");
             console.log('[WebRTC] Peer cerrado');
             console.log('[WebRTC] Peer connected al cerrar:', peer.connected);
             console.log('[WebRTC] Peer destroyed al cerrar:', peer.destroyed);
@@ -511,6 +518,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           });
 
           peer.on('error', (err) => {
+            setDiagnostic("WebRTC: Error: " + err.message);
             console.error('[WebRTC] Error en Peer:', err);
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
@@ -1093,6 +1101,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     };
   }, [peerRef.current]);
 
+  // Estado para mensajes de diagnóstico visuales
+  const [diagnostic, setDiagnostic] = useState<string | null>(null);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
       {renderBackButton()}
@@ -1484,6 +1495,13 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           <div className="fixed top-2 left-2 flex flex-col items-start gap-2 z-40">
             {renderWebRTCQuality()}
             {renderWebRTCMetrics()}
+          </div>
+        )}
+
+        {/* Mostrar mensaje de diagnóstico visual si existe */}
+        {diagnostic && (
+          <div className="bg-yellow-900 bg-opacity-80 border border-yellow-400 text-yellow-200 px-4 py-3 rounded-lg text-center w-full mb-2 animate-pulse">
+            {diagnostic}
           </div>
         )}
       </div>
