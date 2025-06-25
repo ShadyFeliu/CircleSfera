@@ -5,13 +5,18 @@ import ChatRoom from "@/components/ChatRoom";
 import { useTheme } from "@/components/ThemeProvider";
 
 export default function Home() {
+  console.log('🏠 Home component iniciando...');
+  
   const [interests, setInterests] = useState("");
   const [ageFilter, setAgeFilter] = useState("");
   const [showChat, setShowChat] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
   const { toggleTheme, colorScheme } = useTheme();
 
+  console.log('🔍 Estado actual - showChat:', showChat, 'interests:', interests, 'ageFilter:', ageFilter);
+
   const handleStartChat = () => {
+    console.log('🚀 handleStartChat ejecutado');
     setShowChat(true);
   };
 
@@ -22,6 +27,7 @@ export default function Home() {
   };
 
   if (showChat) {
+    console.log('🎬 Renderizando ChatRoom porque showChat es true');
     return (
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center relative pt-16 sm:pt-20">
         <button
