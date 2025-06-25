@@ -438,6 +438,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
           peer.on('connect', () => {
             console.log('[WebRTC] Peer conectado');
+            console.log('[WebRTC] Peer connected:', peer.connected);
+            console.log('[WebRTC] Peer destroyed:', peer.destroyed);
+            console.log('[WebRTC] Stream local:', !!peer.streams[0]);
+            console.log('[WebRTC] Stream local tracks:', peer.streams[0]?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
+            
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             setStatus("Conectado");
@@ -495,6 +500,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
           peer.on('close', () => {
             console.log('[WebRTC] Peer cerrado');
+            console.log('[WebRTC] Peer connected al cerrar:', peer.connected);
+            console.log('[WebRTC] Peer destroyed al cerrar:', peer.destroyed);
+            console.log('[WebRTC] Streams al cerrar:', peer.streams.length);
+            
             clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             if (markIntentionalDisconnectRef.current) {
