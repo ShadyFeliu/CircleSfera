@@ -15,6 +15,8 @@ interface UserProfileClientProps {
 }
 
 export default function UserProfileClient({ username }: UserProfileClientProps) {
+  console.log('👤 UserProfileClient iniciando con username:', username);
+  
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
