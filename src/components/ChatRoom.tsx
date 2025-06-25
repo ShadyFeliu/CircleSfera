@@ -319,6 +319,13 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       socketRef.current?.emit('get_user_count');
     };
 
+    // Si el socket ya está conectado, ejecutar startNewChat inmediatamente
+    if (socket.connected) {
+      console.log('✅ Socket ya conectado, ejecutando startNewChat inmediatamente');
+      startNewChat();
+      socket.emit('get_user_count');
+    }
+
     const onUserCount = (count: number) => {
       if (isComponentMounted) {
       setOnlineUsers(count);
