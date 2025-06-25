@@ -231,6 +231,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const startNewChat = useCallback(() => {
     if (socketRef.current?.connected) {
       console.log('Buscando nuevo compañero con intereses:', interests);
+      console.log('DeviceId que se enviará:', deviceId);
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
       socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter, deviceId });
       setConnectionStatus("waiting");
@@ -253,6 +254,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     setRemoteStream(null);
     // Buscar nuevo compañero
     if (socketRef.current?.connected) {
+      console.log('Buscando nuevo compañero (handleNextChat) con deviceId:', deviceId);
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
       socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter, deviceId });
     } else {
