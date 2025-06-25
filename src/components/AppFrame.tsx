@@ -3,10 +3,15 @@
 import { usePathname } from "next/navigation";
 import Header from "@/components/Header";
 import SocketStatus from "@/components/SocketStatus";
+import { useErrorMonitoring } from "@/hooks/useErrorMonitoring";
 
 export default function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLanding = pathname === "/";
+  
+  // Initialize error monitoring
+  useErrorMonitoring();
+  
   return (
     <>
       {!isLanding && <Header />}
