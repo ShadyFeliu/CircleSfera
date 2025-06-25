@@ -296,6 +296,12 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     console.log('🔍 Socket disponible:', !!socket);
     console.log('🔍 Socket connected:', socket?.connected);
     
+    // Si el socket no está disponible o no está conectado, salir
+    if (!socket || !socket.connected) {
+      console.log('⏳ Socket no disponible o no conectado, esperando...');
+      return;
+    }
+    
     let myStream: MediaStream | undefined;
     let isComponentMounted = true;
 
@@ -591,23 +597,15 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
     return () => {
       isComponentMounted = false;
-      clearInterval(userCountInterval);
-      
       if (myStream) {
         myStream.getTracks().forEach(track => track.stop());
       }
-      
-      socket?.off('connect', onConnect);
-      socket?.off('user_count', onUserCount);
-      socket?.off("partner");
-      socket?.off("signal");
-      socket?.off("partner_disconnected");
-      socket?.off("partner_muted");
-      socket?.off("partner_video_off");
-      
-      socket?.disconnect();
+      if (markIntentionalDisconnectRef.current) {
+        markIntentionalDisconnectRef.current();
+      }
+      clearInterval(userCountInterval);
     };
-  }, [interests, ageFilter, deviceId]);
+  }, [socket, socket?.connected, interests, ageFilter, deviceId]);
   
   // Efecto para manejar la restauración del stream del compañero cuando se cierra el WebRTC Avanzado
   useEffect(() => {
