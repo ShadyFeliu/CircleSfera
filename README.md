@@ -208,3 +208,5 @@ NEXT_PUBLIC_SOCKET_URL=https://api.circlesfera.com
 ## 📄 Licencia
 
 MIT
+
+<!-- Redeploy forzado para limpiar caché - $(date) -->
