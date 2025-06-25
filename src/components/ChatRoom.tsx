@@ -91,8 +91,8 @@ const ICE_SERVERS = {
 };
 
 // Connection timeout constants
-const CONNECTION_TIMEOUT = 30000; // 30 segundos
-const SIGNALING_TIMEOUT = 20000; // 20 segundos
+const CONNECTION_TIMEOUT = 60000; // 60 segundos (aumentado de 30)
+const SIGNALING_TIMEOUT = 45000; // 45 segundos (aumentado de 20)
 
 // Utilidad profesional para obtener o generar un UUID v4 persistente por dispositivo (compatible universalmente)
 function generateUUIDv4() {
@@ -462,8 +462,14 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
           peer.on('signal', (signal) => {
             console.log('[WebRTC] Señal generada:', signal);
+            console.log('[WebRTC] Tipo de señal:', signal.type);
+            console.log('[WebRTC] Socket conectado para enviar señal:', socketRef.current?.connected);
             if (socketRef.current?.connected) {
+              console.log('[WebRTC] Enviando señal al partnerID:', partnerID);
               socketRef.current.emit("signal", { to: partnerID, signal });
+              console.log('[WebRTC] Señal enviada exitosamente');
+            } else {
+              console.error('[WebRTC] Socket no conectado, no se puede enviar señal');
             }
           });
 
@@ -576,8 +582,18 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         });
         
         socket?.on("signal", (data: { from: string; signal: Peer.SignalData; }) => { 
+          console.log('[WebRTC] Señal recibida del socket:', data);
+          console.log('[WebRTC] Tipo de señal recibida:', data.signal.type);
+          console.log('[WebRTC] Peer existe:', !!peer);
+          console.log('[WebRTC] Peer connected:', peer?.connected);
+          console.log('[WebRTC] Peer destroyed:', peer?.destroyed);
+          
           if (peer && isComponentMounted) {
+            console.log('[WebRTC] Procesando señal en peer');
             peer.signal(data.signal); 
+            console.log('[WebRTC] Señal procesada en peer');
+          } else {
+            console.error('[WebRTC] No se puede procesar señal - peer:', !!peer, 'componente montado:', isComponentMounted);
           }
         });
 
