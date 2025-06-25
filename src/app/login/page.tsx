@@ -24,7 +24,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-
+    console.log('🟣 [Login] Enviando datos:', formData);
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -33,21 +33,22 @@ export default function LoginPage() {
         },
         body: JSON.stringify(formData),
       });
-
-      const data = await response.json();
-
+      console.log('🟣 [Login] Respuesta:', response.status, response.statusText);
+      let data = {};
+      try { data = await response.json(); } catch {}
+      console.log('🟣 [Login] Data:', data);
       if (response.ok) {
-        // Guardar datos del usuario en localStorage
-        localStorage.setItem('circleSfera_user', JSON.stringify(data.user));
-        localStorage.setItem('circleSfera_token', data.token);
-        
-        // Redirigir al dashboard o página principal
-        router.push('/dashboard');
+        localStorage.setItem('circleSfera_user', JSON.stringify((data as any).user));
+        localStorage.setItem('circleSfera_token', (data as any).token);
+        console.log('🟣 [Login] Login exitoso, redirigiendo...');
+        window.location.href = '/dashboard';
       } else {
-        setError(data.error || 'Error al iniciar sesión');
+        setError((data as any).error || 'Error al iniciar sesión');
+        console.log('🟣 [Login] Error:', (data as any).error);
       }
     } catch (err) {
       setError('Error de conexión. Intenta de nuevo.');
+      console.log('🟣 [Login] Error de conexión:', err);
     } finally {
       setLoading(false);
     }
