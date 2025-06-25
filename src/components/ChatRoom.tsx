@@ -458,6 +458,20 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             
             const markIntentionalDisconnect = monitorConnectionQuality(peer);
             markIntentionalDisconnectRef.current = markIntentionalDisconnect;
+
+            // Procesar señales en buffer
+            if (signalBufferRef.current.length > 0) {
+              console.log('[WebRTC] Procesando', signalBufferRef.current.length, 'señales en buffer tras crear peer');
+              signalBufferRef.current.forEach(signal => {
+                try {
+                  peer.signal(signal);
+                  console.log('[WebRTC] Señal procesada del buffer');
+                } catch (e) {
+                  console.error('[WebRTC] Error procesando señal del buffer:', e);
+                }
+              });
+              signalBufferRef.current = [];
+            }
           });
 
           peer.on('signal', (signal: Peer.SignalData) => {
