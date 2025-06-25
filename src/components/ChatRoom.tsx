@@ -391,6 +391,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         }
 
         const setupPeer = (partnerID: string, initiator: boolean) => {
+          console.log('[WebRTC] Creando peer. initiator:', initiator, 'partnerID:', partnerID);
           // Limpiar peer anterior completamente
           if (markIntentionalDisconnectRef.current) {
             markIntentionalDisconnectRef.current();
@@ -408,7 +409,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             partnerVideo.current.srcObject = null;
           }
 
-          let connectionTimeout: NodeJS.Timeout | undefined;
           let signalingTimeout: NodeJS.Timeout | undefined;
           
           const peer = new Peer({
@@ -422,11 +422,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             }
           });
 
-          // Timeout de señalización a 30 segundos
+          // Timeout de señalización a 45 segundos
           signalingTimeout = setTimeout(() => {
-            console.log('[WebRTC] ⚠️ Signaling timeout. Destruyendo peer.');
+            console.log('[WebRTC] ⚠️ Signaling timeout (45s). Destruyendo peer.');
             peer.destroy();
-          }, 30000);
+          }, 45000);
 
           peer.on('connect', () => {
             console.log('[WebRTC] Peer conectado');
@@ -435,7 +435,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             console.log('[WebRTC] Stream local:', !!peer.streams[0]);
             console.log('[WebRTC] Stream local tracks:', peer.streams[0]?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
             
-            clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             setStatus("Conectado");
             setConnectionStatus("connected");
@@ -504,7 +503,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             console.log('[WebRTC] Peer destroyed al cerrar:', peer.destroyed);
             console.log('[WebRTC] Streams al cerrar:', peer.streams.length);
             
-            clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             if (markIntentionalDisconnectRef.current) {
               markIntentionalDisconnectRef.current();
@@ -521,7 +519,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
           peer.on('error', (err) => {
             console.error('[WebRTC] Error en Peer:', err);
-            clearTimeout(connectionTimeout);
             clearTimeout(signalingTimeout);
             if (err.message && (
               err.message.includes('ICE') || 
@@ -566,6 +563,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
         socket?.on("partner", (data: { id: string; initiator: boolean; profile?: unknown }) => { 
           if (isComponentMounted) {
+            console.log('[WebRTC] Evento partner recibido. ID del compañero:', data.id, 'initiator:', data.initiator);
             setupPeer(data.id, data.initiator);
             if (data.profile) {
               setPartnerProfile(data.profile);
