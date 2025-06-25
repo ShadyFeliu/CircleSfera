@@ -464,10 +464,24 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
           peer.on('stream', (partnerStream) => {
             console.log('[WebRTC] Stream de compañero recibido:', partnerStream);
-            if (!isComponentMounted) return;
+            console.log('[WebRTC] Stream tracks:', partnerStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
+            console.log('[WebRTC] partnerVideo.current existe:', !!partnerVideo.current);
+            console.log('[WebRTC] useEnhancedWebRTC:', useEnhancedWebRTC);
+            
+            if (!isComponentMounted) {
+              console.log('[WebRTC] Componente no montado, ignorando stream');
+              return;
+            }
+            
             setRemoteStream(partnerStream);
+            console.log('[WebRTC] remoteStream actualizado en estado');
+            
             if (partnerVideo.current && !useEnhancedWebRTC) {
+              console.log('[WebRTC] Asignando stream al video del compañero');
               partnerVideo.current.srcObject = partnerStream;
+              console.log('[WebRTC] Stream asignado al video del compañero');
+            } else {
+              console.log('[WebRTC] No se asignó stream - partnerVideo.current:', !!partnerVideo.current, 'useEnhancedWebRTC:', useEnhancedWebRTC);
             }
           });
 
@@ -621,6 +635,13 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       partnerVideo.current.srcObject = remoteStream;
     }
   }, [useEnhancedWebRTC, remoteStream]);
+
+  // Efecto para verificar que el elemento de video del compañero existe
+  useEffect(() => {
+    console.log('[Video] partnerVideo.current existe:', !!partnerVideo.current);
+    console.log('[Video] remoteStream existe:', !!remoteStream);
+    console.log('[Video] useEnhancedWebRTC:', useEnhancedWebRTC);
+  }, [partnerVideo.current, remoteStream, useEnhancedWebRTC]);
   
   const monitorConnectionQuality = (peer: Peer.Instance) => {
     let isIntentionalDisconnect = false;
