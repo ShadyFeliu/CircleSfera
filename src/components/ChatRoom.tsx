@@ -170,6 +170,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const markIntentionalDisconnectRef = useRef<(() => void) | null>(null);
+  const peerRef = useRef<Peer.Instance | null>(null);
 
   // WebRTC y socket
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -398,6 +399,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           if (markIntentionalDisconnectRef.current) {
             markIntentionalDisconnectRef.current();
           }
+          if (peerRef.current) {
+            peerRef.current.destroy();
+            peerRef.current = null;
+          }
 
           // Limpiar video del compañero
           if (partnerVideo.current) {
@@ -417,6 +422,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               maxRetransmits: 3
             }
           });
+          
+          // Guardar el peer en el ref para que esté disponible en todo el componente
+          peerRef.current = peer;
           
           console.log('[WebRTC] Nuevo peer creado. Initiator:', initiator);
           
@@ -592,16 +600,16 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         socket?.on("signal", (data: { from: string; signal: Peer.SignalData; }) => { 
           console.log('[WebRTC] Señal recibida del socket:', data);
           console.log('[WebRTC] Tipo de señal recibida:', data.signal.type);
-          console.log('[WebRTC] Peer existe:', !!peer);
-          console.log('[WebRTC] Peer connected:', peer?.connected);
-          console.log('[WebRTC] Peer destroyed:', peer?.destroyed);
+          console.log('[WebRTC] Peer existe:', !!peerRef.current);
+          console.log('[WebRTC] Peer connected:', peerRef.current?.connected);
+          console.log('[WebRTC] Peer destroyed:', peerRef.current?.destroyed);
           
-          if (peer && isComponentMounted) {
+          if (peerRef.current && isComponentMounted) {
             console.log('[WebRTC] Procesando señal en peer');
-            peer.signal(data.signal); 
+            peerRef.current.signal(data.signal); 
             console.log('[WebRTC] Señal procesada en peer');
           } else {
-            console.error('[WebRTC] No se puede procesar señal - peer:', !!peer, 'componente montado:', isComponentMounted);
+            console.error('[WebRTC] No se puede procesar señal - peer:', !!peerRef.current, 'componente montado:', isComponentMounted);
           }
         });
 
@@ -609,8 +617,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           if (!isComponentMounted) return;
           
             setStatus("Tu compañero se ha desconectado. Buscando uno nuevo...");
-          if(peer) {
-            peer.destroy();
+          if(peerRef.current) {
+            peerRef.current.destroy();
           }
           const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
           socketRef.current?.emit('find_partner', { interests: interestsArray, ageFilter, deviceId });
@@ -657,6 +665,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       }
       if (markIntentionalDisconnectRef.current) {
         markIntentionalDisconnectRef.current();
+      }
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
       }
       clearInterval(userCountInterval);
     };
@@ -746,8 +758,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   // Enviar datos por el canal de datos del peer del hook
   const sendData = (data: DataType) => {
-    if (peer && peer.connected) {
-      peer.send(JSON.stringify(data));
+    if (peerRef.current && peerRef.current.connected) {
+      peerRef.current.send(JSON.stringify(data));
     }
   };
 
@@ -985,47 +997,53 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   // Enviar efecto al compañero por WebRTC
   useEffect(() => {
-    if (peer && peer.connected) {
-      peer.send(JSON.stringify({ type: 'effect', effect: currentEffect }));
+    if (peerRef.current && peerRef.current.connected) {
+      peerRef.current.send(JSON.stringify({ type: 'effect', effect: currentEffect }));
     }
     // Aplica el efecto al vídeo local
     if (myVideo.current) {
-      if (currentEffect === 'mirror') {
-        myVideo.current.style.transform = 'scaleX(-1)';
-      } else if (currentEffect === 'zoom') {
-        myVideo.current.style.transform = 'scale(1.2)';
-      } else if (currentEffect === 'rotate') {
-        myVideo.current.style.transform = 'rotate(90deg)';
-      } else {
-        myVideo.current.style.transform = 'scale(1) rotate(0deg)';
+      if (currentEffect === 'none') {
+        myVideo.current.style.filter = 'none';
+      } else if (currentEffect === 'blur') {
+        myVideo.current.style.filter = 'blur(5px)';
+      } else if (currentEffect === 'grayscale') {
+        myVideo.current.style.filter = 'grayscale(100%)';
+      } else if (currentEffect === 'sepia') {
+        myVideo.current.style.filter = 'sepia(100%)';
+      } else if (currentEffect === 'invert') {
+        myVideo.current.style.filter = 'invert(100%)';
       }
     }
-  }, [currentEffect, peer]);
+  }, [currentEffect, peerRef.current]);
 
   // Aplica el efecto recibido al vídeo del compañero
   useEffect(() => {
-    if (!peer) return;
+    if (!peerRef.current) return;
     const onData = (data: unknown) => {
       try {
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        const parsed = JSON.parse(data as string);
         if (parsed.type === 'effect' && partnerVideo.current) {
-          if (parsed.effect === 'mirror') {
-            partnerVideo.current.style.transform = 'scaleX(-1)';
-          } else if (parsed.effect === 'zoom') {
-            partnerVideo.current.style.transform = 'scale(1.2)';
-          } else if (parsed.effect === 'rotate') {
-            partnerVideo.current.style.transform = 'rotate(90deg)';
-          } else {
-            partnerVideo.current.style.transform = 'scale(1) rotate(0deg)';
+          if (parsed.effect === 'none') {
+            partnerVideo.current.style.filter = 'none';
+          } else if (parsed.effect === 'blur') {
+            partnerVideo.current.style.filter = 'blur(5px)';
+          } else if (parsed.effect === 'grayscale') {
+            partnerVideo.current.style.filter = 'grayscale(100%)';
+          } else if (parsed.effect === 'sepia') {
+            partnerVideo.current.style.filter = 'sepia(100%)';
+          } else if (parsed.effect === 'invert') {
+            partnerVideo.current.style.filter = 'invert(100%)';
           }
         }
       } catch {}
     };
-    peer.on('data', onData);
+    peerRef.current.on('data', onData);
     return () => {
-      peer.off('data', onData);
+      if (peerRef.current) {
+        peerRef.current.off('data', onData);
+      }
     };
-  }, [peer]);
+  }, [peerRef.current]);
 
   // Feedback visual del estado de conexión Socket.IO
   const renderSocketStatus = () => {
@@ -1090,8 +1108,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   // Enviar reacción al compañero
   const sendReaction = (emoji: string) => {
-    if (peer && peer.connected) {
-      peer.send(JSON.stringify({ type: 'reaction', emoji }));
+    if (peerRef.current && peerRef.current.connected) {
+      peerRef.current.send(JSON.stringify({ type: 'reaction', emoji }));
     } else if (socketRef.current?.connected) {
       socketRef.current.emit('reaction', { emoji });
     }
@@ -1102,20 +1120,23 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   // Recibir reacción por WebRTC
   useEffect(() => {
-    if (!peer) return;
+    if (!peerRef.current) return;
     const onData = (data: unknown) => {
       try {
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-        if (parsed.type === 'reaction' && parsed.emoji) {
+        const parsed = JSON.parse(data as string);
+        if (parsed.type === 'reaction') {
           setIncomingReaction(parsed.emoji);
           setReactionKey(prev => prev + 1);
-          setTimeout(() => setIncomingReaction(null), 1200);
         }
       } catch {}
     };
-    peer.on('data', onData);
-    return () => { peer.off('data', onData); };
-  }, [peer]);
+    peerRef.current.on('data', onData);
+    return () => { 
+      if (peerRef.current) {
+        peerRef.current.off('data', onData); 
+      }
+    };
+  }, [peerRef.current]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
