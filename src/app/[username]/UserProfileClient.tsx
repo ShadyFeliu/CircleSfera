@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import ChatRoom from "@/components/ChatRoom";
 
 interface User {
   nombre: string;
@@ -20,6 +21,7 @@ export default function UserProfileClient({ username }: UserProfileClientProps) 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [form, setForm] = useState({ nombre: "", email: "", telefono: "", username: "" });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -86,7 +88,33 @@ export default function UserProfileClient({ username }: UserProfileClientProps) 
     }
   };
 
+  const handleStartChat = () => {
+    console.log('🚀 Iniciando chat desde UserProfileClient');
+    setShowChat(true);
+  };
+
+  const handleBackToProfile = () => {
+    console.log('🔙 Volviendo al perfil desde chat');
+    setShowChat(false);
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center">Cargando perfil...</div>;
+
+  // Si showChat es true, renderizar el chat
+  if (showChat) {
+    console.log('🎬 Renderizando ChatRoom desde UserProfileClient');
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center relative pt-16 sm:pt-20">
+        <button
+          onClick={handleBackToProfile}
+          className="absolute top-8 left-2 sm:top-12 sm:left-8 z-50 bg-gray-800/80 hover:bg-gray-700 text-white px-5 py-2 rounded-full transition-all shadow-lg border border-gray-600 text-base font-semibold opacity-80 hover:opacity-100 backdrop-blur"
+        >
+          ← Volver al perfil
+        </button>
+        <ChatRoom interests="" ageFilter="" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 text-white p-6">
@@ -123,7 +151,15 @@ export default function UserProfileClient({ username }: UserProfileClientProps) 
             <div><span className="font-semibold">Email:</span> {user?.email}</div>
             <div><span className="font-semibold">Teléfono:</span> {user?.telefono}</div>
             <div><span className="font-semibold">Nombre de usuario:</span> @{user?.username}</div>
-            <button className="btn-primary w-full mt-6" onClick={() => setEditMode(true)}>Editar perfil</button>
+            <div className="flex gap-2 mt-6">
+              <button className="btn-primary flex-1" onClick={() => setEditMode(true)}>Editar perfil</button>
+              <button 
+                className="btn-secondary flex-1" 
+                onClick={handleStartChat}
+              >
+                🚀 Iniciar Chat
+              </button>
+            </div>
           </div>
         )}
       </div>
