@@ -422,7 +422,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             stream: stream,
             config: ICE_SERVERS,
             channelConfig: {
-              ordered: true,
+              ordered: false,
               maxRetransmits: 3
             }
           });
@@ -452,12 +452,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           }, CONNECTION_TIMEOUT);
 
           signalingTimeout = setTimeout(() => {
-            if (!peer.connected && isComponentMounted) {
-              console.warn('[WebRTC] Signaling timeout. Destruyendo peer.');
-              peer.destroy();
-              handleNextChat();
-            }
-          }, SIGNALING_TIMEOUT);
+            console.log('[WebRTC] ⚠️ Signaling timeout aumentado. Destruyendo peer.');
+            peer.destroy();
+          }, 30000); // 30 segundos en lugar de 10
 
           peer.on('connect', () => {
             console.log('[WebRTC] Peer conectado');
@@ -483,16 +480,12 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             markIntentionalDisconnectRef.current = markIntentionalDisconnect;
           });
 
-          peer.on('signal', (signal) => {
-            console.log('[WebRTC] Señal generada:', signal);
-            console.log('[WebRTC] Tipo de señal:', signal.type);
-            console.log('[WebRTC] Socket conectado para enviar señal:', socketRef.current?.connected);
-            if (socketRef.current?.connected) {
-              console.log('[WebRTC] Enviando señal al partnerID:', partnerID);
-              socketRef.current.emit("signal", { to: partnerID, signal });
-              console.log('[WebRTC] Señal enviada exitosamente');
-            } else {
-              console.error('[WebRTC] Socket no conectado, no se puede enviar señal');
+          peer.on('signal', (signal: Peer.SignalData) => {
+            console.log('[WebRTC] 🔥🔥🔥 SEÑAL ENVIADA:', signal.type);
+            console.log('[WebRTC] Señal completa:', signal);
+            if (socket && isComponentMounted) {
+              socket.emit('signal', { to: partnerID, signal });
+              console.log('[WebRTC] Señal enviada al socket para:', partnerID);
             }
           });
 
