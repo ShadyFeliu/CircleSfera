@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ChatRoom from "@/components/ChatRoom";
 import { useTheme } from "@/components/ThemeProvider";
+import Header from '@/components/Header';
 
 export default function Home() {
   console.log('🏠 Home component iniciando...');
@@ -12,10 +15,34 @@ export default function Home() {
   const [showChat, setShowChat] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
   const { toggleTheme, colorScheme } = useTheme();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   console.log('🔍 Estado actual - showChat:', showChat, 'interests:', interests, 'ageFilter:', ageFilter);
 
+  useEffect(() => {
+    // Verificar si el usuario está autenticado
+    const userData = localStorage.getItem('circleSfera_user');
+    const token = localStorage.getItem('circleSfera_token');
+
+    if (userData && token) {
+      setIsAuthenticated(true);
+      // Si está autenticado, redirigir al dashboard
+      router.push('/dashboard');
+    } else {
+      setIsAuthenticated(false);
+    }
+    setLoading(false);
+  }, [router]);
+
   const handleStartChat = () => {
+    if (!isAuthenticated) {
+      // Si no está autenticado, redirigir a login
+      router.push('/login');
+      return;
+    }
+    
     console.log('🚀 handleStartChat ejecutado');
     setShowChat(true);
   };
@@ -25,6 +52,23 @@ export default function Home() {
     setInterests("");
     setAgeFilter("");
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
+        <div className="text-white text-xl">Cargando...</div>
+      </div>
+    );
+  }
+
+  // Si está autenticado, mostrar loading mientras redirige
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
+        <div className="text-white text-xl">Redirigiendo...</div>
+      </div>
+    );
+  }
 
   if (showChat) {
     console.log('🎬 Renderizando ChatRoom porque showChat es true');
@@ -42,32 +86,17 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 text-white flex flex-col justify-center items-center">
-      {/* Header con controles de tema */}
-      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 flex space-x-2">
-        <button
-          onClick={toggleTheme}
-          className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-all"
-          title="Cambiar tema"
-        >
-          🌙
-        </button>
-        <button
-          onClick={() => setShowFeatures(!showFeatures)}
-          className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-all"
-          title="Nuevas funcionalidades"
-        >
-          ✨
-        </button>
-      </div>
-
-      <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-12 md:py-16 flex flex-col justify-center items-center w-full">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
+      <Header />
+      
+      <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8 pt-20">
         <div className="text-center mb-8 sm:mb-12">
-          <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent break-words">
+          <h1 className="text-4xl sm:text-6xl font-bold text-white mb-4 sm:mb-6">
             CircleSfera
           </h1>
-          <p className="text-base sm:text-xl md:text-2xl mb-4 sm:mb-8 text-gray-300">
-            Conecta con personas increíbles de todo el mundo
+          <p className="text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto">
+            Conecta con personas de todo el mundo a través de video chat. 
+            Descubre nuevas culturas, haz amigos y expande tus horizontes.
           </p>
         </div>
 
@@ -163,10 +192,24 @@ export default function Home() {
             <p className="mt-2">
               <span className="text-green-400">✓</span> Conexiones seguras
               <span className="mx-1 sm:mx-2">•</span>
-              <span className="text-green-400">✓</span> Sin registro requerido
+              <span className="text-green-400">✓</span> Registro requerido
               <span className="mx-1 sm:mx-2">•</span>
               <span className="text-green-400">✓</span> Totalmente gratuito
             </p>
+            <div className="mt-4">
+              <Link 
+                href="/login" 
+                className="text-blue-400 hover:text-blue-300 font-medium transition-colors mr-4"
+              >
+                Iniciar Sesión
+              </Link>
+              <Link 
+                href="/register" 
+                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              >
+                Registrarse
+              </Link>
+            </div>
           </div>
         </div>
       </div>
