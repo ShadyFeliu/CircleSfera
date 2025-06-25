@@ -1,3 +1,7 @@
+// Este archivo no debe contener lógica de backend. La lógica de socket debe estar en CircleSfera-Backend/server.ts
+
+export {};
+
 io.on("connection", (socket) => {
   const ip = socket.handshake.address;
   const userAgent = socket.handshake.headers['user-agent'] || '';
@@ -17,4 +21,5 @@ io.on("connection", (socket) => {
     setTimeout(checkAutoPairing, 1000);
   });
 
-// ... existing code ... 
+// ... existing code ...
+}); 
