@@ -42,22 +42,30 @@ export function useSocket(url?: string, opts?: Record<string, unknown>) {
     socketRef.current = socket;
 
     const onConnect = () => {
+      console.log('[useSocket] ✅ Socket conectado exitosamente a:', socketUrl);
       setStatus('connected');
       setRetries(0);
     };
-    const onDisconnect = () => {
+    const onDisconnect = (reason: string) => {
+      console.log('[useSocket] ❌ Socket desconectado. Razón:', reason);
       setStatus('disconnected');
     };
     const onReconnectAttempt = (attempt: number) => {
+      console.log('[useSocket] 🔄 Intento de reconexión:', attempt);
       setStatus('reconnecting');
       setRetries(attempt);
     };
     const onReconnectFailed = () => {
+      console.log('[useSocket] ❌ Reconexión fallida después de', MAX_RETRIES, 'intentos');
       setStatus('failed');
     };
     const onReconnect = () => {
+      console.log('[useSocket] ✅ Socket reconectado exitosamente');
       setStatus('connected');
       setRetries(0);
+    };
+    const onConnectError = (error: Error) => {
+      console.log('[useSocket] ❌ Error de conexión:', error.message);
     };
 
     socket.on('connect', onConnect);
@@ -65,6 +73,7 @@ export function useSocket(url?: string, opts?: Record<string, unknown>) {
     socket.on('reconnect_attempt', onReconnectAttempt);
     socket.on('reconnect_failed', onReconnectFailed);
     socket.on('reconnect', onReconnect);
+    socket.on('connect_error', onConnectError);
 
     return () => {
       socket.off('connect', onConnect);
@@ -72,6 +81,7 @@ export function useSocket(url?: string, opts?: Record<string, unknown>) {
       socket.off('reconnect_attempt', onReconnectAttempt);
       socket.off('reconnect_failed', onReconnectFailed);
       socket.off('reconnect', onReconnect);
+      socket.off('connect_error', onConnectError);
       socket.disconnect();
     };
   }, [socketUrl, opts]);
