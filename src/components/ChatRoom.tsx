@@ -416,10 +416,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           let connectionTimeout: NodeJS.Timeout | undefined;
           let signalingTimeout: NodeJS.Timeout | undefined;
           
-          console.log('[WebRTC] Configurando peer para partner:', partnerID);
-          console.log('[WebRTC] Stream disponible:', !!stream);
-          console.log('[WebRTC] Stream tracks:', stream?.getTracks().map(t => t.kind));
-          
           const peer = new Peer({
             initiator,
             trickle: true,
@@ -431,38 +427,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             }
           });
 
-          console.log('[WebRTC] Peer creado, verificando estado inicial...');
-          console.log('[WebRTC] Peer destroyed:', peer.destroyed);
-          console.log('[WebRTC] Peer connected:', peer.connected);
-          
-          // Guardar el peer en el ref para que esté disponible en todo el componente
-          peerRef.current = peer;
-          
-          console.log('[WebRTC] Nuevo peer creado. Initiator:', initiator);
-          
-          // Procesar señales del buffer si existen
-          if (signalBufferRef.current.length > 0) {
-            console.log('[WebRTC] Procesando', signalBufferRef.current.length, 'señales del buffer');
-            signalBufferRef.current.forEach(signal => {
-              console.log('[WebRTC] Procesando señal del buffer:', signal.type);
-              peer.signal(signal);
-            });
-            signalBufferRef.current = []; // Limpiar buffer
-            console.log('[WebRTC] Buffer limpiado');
-          }
-
-          connectionTimeout = setTimeout(() => {
-            if (!peer.connected && isComponentMounted) {
-              console.warn('[WebRTC] Connection timeout. Destruyendo peer.');
-              peer.destroy();
-              handleNextChat();
-            }
-          }, CONNECTION_TIMEOUT);
-
+          // Timeout de señalización a 30 segundos
           signalingTimeout = setTimeout(() => {
-            console.log('[WebRTC] ⚠️ Signaling timeout aumentado. Destruyendo peer.');
+            console.log('[WebRTC] ⚠️ Signaling timeout. Destruyendo peer.');
             peer.destroy();
-          }, 30000); // 30 segundos en lugar de 10
+          }, 30000);
 
           peer.on('connect', () => {
             console.log('[WebRTC] Peer conectado');
@@ -489,36 +458,26 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           });
 
           peer.on('signal', (signal: Peer.SignalData) => {
-            console.log('[WebRTC] 🔥🔥🔥 SEÑAL ENVIADA:', signal.type);
-            console.log('[WebRTC] Señal completa:', signal);
             if (socket && isComponentMounted) {
               socket.emit('signal', { to: partnerID, signal });
-              console.log('[WebRTC] Señal enviada al socket para:', partnerID);
             }
           });
 
-          console.log('[WebRTC] Evento signal registrado en peer');
-
           peer.on('stream', (partnerStream) => {
             console.log('[WebRTC] Stream de compañero recibido:', partnerStream);
-            console.log('[WebRTC] Stream tracks:', partnerStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
+            console.log('[WebRTC] Stream tracks:', partnerStream.getTracks());
             console.log('[WebRTC] partnerVideo.current existe:', !!partnerVideo.current);
             console.log('[WebRTC] useEnhancedWebRTC:', useEnhancedWebRTC);
             
-            if (!isComponentMounted) {
-              console.log('[WebRTC] Componente no montado, ignorando stream');
-              return;
-            }
-            
-            setRemoteStream(partnerStream);
-            console.log('[WebRTC] remoteStream actualizado en estado');
-            
-            if (partnerVideo.current && !useEnhancedWebRTC) {
-              console.log('[WebRTC] Asignando stream al video del compañero');
-              partnerVideo.current.srcObject = partnerStream;
-              console.log('[WebRTC] Stream asignado al video del compañero');
-            } else {
-              console.log('[WebRTC] No se asignó stream - partnerVideo.current:', !!partnerVideo.current, 'useEnhancedWebRTC:', useEnhancedWebRTC);
+            if (isComponentMounted) {
+              setRemoteStream(partnerStream);
+              console.log('[WebRTC] remoteStream actualizado en estado');
+              
+              if (partnerVideo.current && !useEnhancedWebRTC) {
+                console.log('[WebRTC] Asignando stream al video del compañero');
+                partnerVideo.current.srcObject = partnerStream;
+                console.log('[WebRTC] Stream asignado al video del compañero');
+              }
             }
           });
 
@@ -597,23 +556,11 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         };
 
         socket?.on("partner", (data: { id: string; initiator: boolean; profile?: unknown }) => { 
-          console.log('[WebRTC] 🔥🔥🔥 Evento partner recibido:', data);
-          console.log('[WebRTC] Partner ID:', data.id);
-          console.log('[WebRTC] Initiator:', data.initiator);
-          console.log('[WebRTC] Componente montado:', isComponentMounted);
-          console.log('[WebRTC] PeerRef actual antes de setupPeer:', !!peerRef.current);
-          
           if (isComponentMounted) {
-            console.log('[WebRTC] Configurando peer para partner:', data.id);
             setupPeer(data.id, data.initiator);
-            console.log('[WebRTC] PeerRef actual después de setupPeer:', !!peerRef.current);
             if (data.profile) {
               setPartnerProfile(data.profile);
-            } else {
-              setPartnerProfile(null);
             }
-          } else {
-            console.error('[WebRTC] Componente no montado, ignorando evento partner');
           }
         });
         
@@ -1560,5 +1507,4 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   );
 };
 
-export default ChatRoom; console.log('🔥🔥🔥 PARTNER EVENT TEST 🔥🔥🔥');
-console.log('🚀 DEPLOY TEST - setupPeer logs');
+export default ChatRoom;
