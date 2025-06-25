@@ -35,7 +35,20 @@ export default function UserProfileClient({ username }: UserProfileClientProps) 
       setSuccess(null);
       try {
         const res = await fetch(`/api/user/${actualUsername}`);
-        if (!res.ok) throw new Error("Usuario no encontrado");
+        if (res.status === 404) {
+          setError("Usuario no encontrado");
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        if (!res.ok) {
+          let data = {};
+          try { data = await res.json(); } catch {}
+          setError((data as any).error || "Error al cargar el perfil");
+          setUser(null);
+          setLoading(false);
+          return;
+        }
         const data = await res.json();
         setUser(data);
         setForm({
@@ -67,12 +80,17 @@ export default function UserProfileClient({ username }: UserProfileClientProps) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      if (res.status === 404) {
+        setError("Usuario no encontrado");
+        return;
+      }
       if (!res.ok) {
-        const data = await res.json();
-        if (data.error && data.error.includes("ya está en uso")) {
+        let data = {};
+        try { data = await res.json(); } catch {}
+        if ((data as any).error && (data as any).error.includes("ya está en uso")) {
           setError("Ese nombre de usuario ya está en uso. Elige otro.");
         } else {
-          setError(data.error || "Error al guardar los cambios");
+          setError((data as any).error || "Error al guardar los cambios");
         }
         return;
       }
