@@ -113,6 +113,9 @@ function getOrCreateDeviceId() {
 }
 
 const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: string }) => {
+  console.log('🎬 ChatRoom component iniciando...');
+  console.log('🔍 Props recibidas - interests:', interests, 'ageFilter:', ageFilter);
+  
   // --- HOOKS AL INICIO ---
   // Estados principales
   const [messages, setMessages] = useState<Message[]>([]);
@@ -289,6 +292,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    console.log('🔄 useEffect principal ejecutándose...');
+    console.log('🔍 Socket disponible:', !!socket);
+    console.log('🔍 Socket connected:', socket?.connected);
+    
     let myStream: MediaStream | undefined;
     let isComponentMounted = true;
 
