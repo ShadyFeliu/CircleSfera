@@ -171,6 +171,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const messageInputRef = useRef<HTMLInputElement>(null);
   const markIntentionalDisconnectRef = useRef<(() => void) | null>(null);
   const peerRef = useRef<Peer.Instance | null>(null);
+  const signalBufferRef = useRef<Peer.SignalData[]>([]);
 
   // WebRTC y socket
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -403,6 +404,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             peerRef.current.destroy();
             peerRef.current = null;
           }
+          
+          // Limpiar buffer de señales
+          signalBufferRef.current = [];
 
           // Limpiar video del compañero
           if (partnerVideo.current) {
@@ -428,6 +432,17 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           
           console.log('[WebRTC] Nuevo peer creado. Initiator:', initiator);
           
+          // Procesar señales del buffer si existen
+          if (signalBufferRef.current.length > 0) {
+            console.log('[WebRTC] Procesando', signalBufferRef.current.length, 'señales del buffer');
+            signalBufferRef.current.forEach(signal => {
+              console.log('[WebRTC] Procesando señal del buffer:', signal.type);
+              peer.signal(signal);
+            });
+            signalBufferRef.current = []; // Limpiar buffer
+            console.log('[WebRTC] Buffer limpiado');
+          }
+
           connectionTimeout = setTimeout(() => {
             if (!peer.connected && isComponentMounted) {
               console.warn('[WebRTC] Connection timeout. Destruyendo peer.');
@@ -579,14 +594,16 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         };
 
         socket?.on("partner", (data: { id: string; initiator: boolean; profile?: unknown }) => { 
-          console.log('[WebRTC] Evento partner recibido:', data);
+          console.log('[WebRTC] 🔥🔥🔥 Evento partner recibido:', data);
           console.log('[WebRTC] Partner ID:', data.id);
           console.log('[WebRTC] Initiator:', data.initiator);
           console.log('[WebRTC] Componente montado:', isComponentMounted);
+          console.log('[WebRTC] PeerRef actual antes de setupPeer:', !!peerRef.current);
           
           if (isComponentMounted) {
             console.log('[WebRTC] Configurando peer para partner:', data.id);
             setupPeer(data.id, data.initiator);
+            console.log('[WebRTC] PeerRef actual después de setupPeer:', !!peerRef.current);
             if (data.profile) {
               setPartnerProfile(data.profile);
             } else {
@@ -609,7 +626,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             peerRef.current.signal(data.signal); 
             console.log('[WebRTC] Señal procesada en peer');
           } else {
-            console.error('[WebRTC] No se puede procesar señal - peer:', !!peerRef.current, 'componente montado:', isComponentMounted);
+            console.log('[WebRTC] Peer no disponible, guardando señal en buffer');
+            signalBufferRef.current.push(data.signal);
+            console.log('[WebRTC] Señales en buffer:', signalBufferRef.current.length);
           }
         });
 
