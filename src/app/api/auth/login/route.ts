@@ -2,14 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const { email, password, username } = await request.json();
 
-    // Validar campos requeridos
-    if (!email || !password) {
+    // Validar que se proporcione email o username
+    if (!email && !username) {
       return NextResponse.json(
-        { error: 'Email y contraseña son requeridos' },
+        { error: 'Debes proporcionar email o nombre de usuario' },
         { status: 400 }
       );
+    }
+
+    // Validar contraseña
+    if (!password) {
+      return NextResponse.json(
+        { error: 'La contraseña es requerida' },
+        { status: 400 }
+      );
+    }
+
+    // Validar formato de email si se proporciona
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return NextResponse.json(
+          { error: 'Formato de email inválido' },
+          { status: 400 }
+        );
+      }
     }
 
     // Llamar al backend para autenticación
@@ -20,7 +39,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, username }),
     });
 
     const data = await response.json();

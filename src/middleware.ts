@@ -5,34 +5,19 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ['/login', '/register'];
+  const publicRoutes = ['/login', '/register', '/'];
   
   // Rutas que requieren autenticación
-  const protectedRoutes = ['/dashboard', '/chat'];
+  const protectedRoutes = ['/dashboard'];
   
   // Verificar si es una ruta protegida
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   
-  // Verificar si es una ruta pública de autenticación
-  const isAuthRoute = publicRoutes.includes(pathname);
-  
-  // Obtener token del localStorage (esto se maneja en el cliente)
-  // Para el middleware, verificamos si hay cookies de sesión
-  const hasAuthCookie = request.cookies.has('circleSfera_token');
-  
-  // Si es una ruta protegida y no está autenticado, redirigir a login
-  if (isProtectedRoute && !hasAuthCookie) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-  
-  // Si está en una ruta de auth y ya está autenticado, redirigir a dashboard
-  if (isAuthRoute && hasAuthCookie) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-  
-  // Para la página principal, verificar autenticación
-  if (pathname === '/' && hasAuthCookie) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // Para rutas protegidas, permitir que el frontend maneje la autenticación
+  // El middleware no puede acceder a localStorage, así que confiamos en el cliente
+  if (isProtectedRoute) {
+    // Permitir que el componente del cliente verifique la autenticación
+    return NextResponse.next();
   }
   
   return NextResponse.next();

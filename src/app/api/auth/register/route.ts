@@ -28,6 +28,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Formato de email inválido' },
+        { status: 400 }
+      );
+    }
+
     // Llamar al backend para registro
     const backendUrl = process.env.NEXT_PUBLIC_SOCKET_URL?.replace('/socket.io', '') || 'https://api.circlesfera.com';
     
