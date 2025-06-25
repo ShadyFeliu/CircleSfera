@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import io, { Socket } from "socket.io-client";
 import Peer from "simple-peer";
 import ScreenRecorder from "./ScreenRecorder";
@@ -116,6 +116,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   console.log('🎬 ChatRoom component iniciando...');
   console.log('🔍 Props recibidas - interests:', interests, 'ageFilter:', ageFilter);
   
+  // Memoizar el deviceId para evitar regeneraciones innecesarias
+  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+  
   // --- HOOKS AL INICIO ---
   // Estados principales
   const [messages, setMessages] = useState<Message[]>([]);
@@ -228,8 +231,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       setUserPreferences(JSON.parse(savedPreferences));
     }
   }, []);
-
-  const deviceId = getOrCreateDeviceId();
 
   const startNewChat = useCallback(() => {
     console.log('🚀 startNewChat ejecutándose...');
