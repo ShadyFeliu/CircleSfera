@@ -181,7 +181,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   // WebRTC y socket
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [partnerSignal, setPartnerSignal] = useState<Peer.SignalData | null>(null);
-  const [isInitiator, setIsInitiator] = useState(false);
   const [webRTCReady, setWebRTCReady] = useState(false);
   const [webRTCError, setWebRTCError] = useState<Error | null>(null);
   const [webRTCStatus, setWebRTCStatus] = useState<WebRTCStatus>('idle');
@@ -204,7 +203,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     destroy: destroyPeer,
     peer,
   } = useWebRTC({
-    initiator: isInitiator,
+    initiator: false,
     stream: localStream,
     iceServers: ICE_SERVERS.iceServers,
     onSignal: (data) => {
@@ -262,6 +261,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, [interests, ageFilter, deviceId]);
 
   const handleNextChat = useCallback(() => {
+    console.info('[ChatRoom] handleNextChat: Iniciando búsqueda de nuevo compañero.');
     setReconnectAttempts(0);
     setMessages([]);
     setStatus("Buscando un compañero...");
@@ -269,16 +269,16 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     setIsPartnerMuted(false);
     setIsPartnerVideoOff(false);
     if (partnerVideo.current) {
+      console.info('[ChatRoom] handleNextChat: Limpiando srcObject del video del compañero.');
       partnerVideo.current.srcObject = null;
     }
     setRemoteStream(null);
-    // Buscar nuevo compañero
     if (socketRef.current?.connected) {
-      console.log('Buscando nuevo compañero (handleNextChat) con deviceId:', deviceId);
+      console.info('[ChatRoom] handleNextChat: Socket conectado, enviando find_partner.');
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
       socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter, deviceId });
     } else {
-      console.error("Socket no conectado. No se puede buscar nuevo compañero.");
+      console.error('[ChatRoom] handleNextChat: Socket no conectado. No se puede buscar nuevo compañero.');
     }
   }, [interests, ageFilter, deviceId]);
 
@@ -397,26 +397,29 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         }
 
         const setupPeer = (partnerID: string, initiator: boolean) => {
-          console.log('[WebRTC] Creando peer. initiator:', initiator, 'partnerID:', partnerID);
+          const now = new Date().toISOString();
+          if (!stream) {
+            console.error(`[WebRTC][${now}] ❌ No se puede crear el peer: stream local no disponible. initiator: ${initiator}, partnerID: ${partnerID}`);
+            setStatus('Error: No se pudo acceder a la cámara/micrófono.');
+            setConnectionStatus('error');
+            return;
+          }
+          console.info(`[WebRTC][${now}] setupPeer: Creando peer. initiator: ${initiator}, partnerID: ${partnerID}`);
           // Limpiar peer anterior completamente
           if (markIntentionalDisconnectRef.current) {
             markIntentionalDisconnectRef.current();
           }
           if (peerRef.current) {
+            console.info(`[WebRTC][${now}] setupPeer: Destruyendo peer anterior.`);
             peerRef.current.destroy();
             peerRef.current = null;
           }
-          
-          // Limpiar buffer de señales
           signalBufferRef.current = [];
-
-          // Limpiar video del compañero
           if (partnerVideo.current) {
+            console.info(`[WebRTC][${now}] setupPeer: Limpiando srcObject del video del compañero.`);
             partnerVideo.current.srcObject = null;
           }
-
           let signalingTimeout: NodeJS.Timeout | undefined;
-          
           const peer = new Peer({
             initiator,
             trickle: true,
@@ -427,16 +430,15 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               maxRetransmits: 3
             }
           });
-
-          // Timeout de señalización a 45 segundos
+          peerRef.current = peer;
           signalingTimeout = setTimeout(() => {
-            console.log('[WebRTC] ⚠️ Signaling timeout (45s). Destruyendo peer.');
+            const nowTimeout = new Date().toISOString();
+            console.warn(`[WebRTC][${nowTimeout}] ⚠️ Signaling timeout (45s). Destruyendo peer.`);
             peer.destroy();
             if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
               setTimeout(() => {
                 setReconnectAttempts(prev => prev + 1);
-                console.log('[WebRTC] Reintentando conexión, intento', reconnectAttempts + 1);
-                // Llama a handleNextChat o startNewChat según tu lógica
+                console.warn(`[WebRTC][${nowTimeout}] Reintentando conexión, intento ${reconnectAttempts + 1}`);
                 handleNextChat();
               }, 1500);
             } else {
@@ -444,82 +446,64 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               setReconnectAttempts(0);
             }
           }, 45000);
-
+          peer.on('signal', (signal: Peer.SignalData) => {
+            const nowSignal = new Date().toISOString();
+            console.info(`[WebRTC][${nowSignal}] peer.on('signal'): Enviando señal al compañero. Tipo: ${signal.type}, partnerID: ${partnerID}, initiator: ${initiator}`);
+            if (socket && isComponentMounted) {
+              socket.emit('signal', { to: partnerID, signal });
+            }
+          });
           peer.on('connect', () => {
-            console.log('[WebRTC] Peer conectado');
-            console.log('[WebRTC] Peer connected:', peer.connected);
-            console.log('[WebRTC] Peer destroyed:', peer.destroyed);
-            console.log('[WebRTC] Stream local:', !!peer.streams[0]);
-            console.log('[WebRTC] Stream local tracks:', peer.streams[0]?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
-            
+            const nowConnect = new Date().toISOString();
+            console.info(`[WebRTC][${nowConnect}] peer.on('connect'): Peer conectado. partnerID: ${partnerID}`);
             clearTimeout(signalingTimeout);
             setStatus("Conectado");
             setConnectionStatus("connected");
             setMessages([]);
             incrementChats();
-            
             if (interests) {
               interests.split(',').forEach(interest => {
                 if (interest.trim()) addInterest(interest.trim().toLowerCase());
               });
             }
-            
             const markIntentionalDisconnect = monitorConnectionQuality(peer);
             markIntentionalDisconnectRef.current = markIntentionalDisconnect;
-
-            // Procesar señales en buffer
             if (signalBufferRef.current.length > 0) {
-              console.log('[WebRTC] Procesando', signalBufferRef.current.length, 'señales en buffer tras crear peer');
+              console.info(`[WebRTC][${nowConnect}] Procesando ${signalBufferRef.current.length} señales en buffer tras crear peer`);
               signalBufferRef.current.forEach(signal => {
                 try {
                   peer.signal(signal);
-                  console.log('[WebRTC] Señal procesada del buffer');
+                  console.info(`[WebRTC][${nowConnect}] Señal procesada del buffer`);
                 } catch (e) {
-                  console.error('[WebRTC] Error procesando señal del buffer:', e);
+                  console.error(`[WebRTC][${nowConnect}] Error procesando señal del buffer:`, e);
                 }
               });
               signalBufferRef.current = [];
             }
           });
-
-          peer.on('signal', (signal: Peer.SignalData) => {
-            if (socket && isComponentMounted) {
-              socket.emit('signal', { to: partnerID, signal });
-            }
-          });
-
           peer.on('stream', (partnerStream) => {
-            console.log('[WebRTC] Stream de compañero recibido:', partnerStream);
-            console.log('[WebRTC] Stream tracks:', partnerStream.getTracks());
-            console.log('[WebRTC] partnerVideo.current existe:', !!partnerVideo.current);
-            console.log('[WebRTC] useEnhancedWebRTC:', useEnhancedWebRTC);
-            
+            const nowStream = new Date().toISOString();
+            console.info(`[WebRTC][${nowStream}] peer.on('stream'): Stream de compañero recibido.`, partnerStream);
             if (isComponentMounted) {
               setRemoteStream(partnerStream);
-              console.log('[WebRTC] remoteStream actualizado en estado');
-              
+              console.info(`[WebRTC][${nowStream}] remoteStream actualizado en estado.`);
               if (partnerVideo.current && !useEnhancedWebRTC) {
-                console.log('[WebRTC] Asignando stream al video del compañero');
                 partnerVideo.current.srcObject = partnerStream;
-                console.log('[WebRTC] Stream asignado al video del compañero');
+                console.info(`[WebRTC][${nowStream}] Stream asignado al video del compañero.`);
+              } else if (!partnerVideo.current) {
+                console.warn(`[WebRTC][${nowStream}] partnerVideo.current no existe al intentar asignar stream.`);
               }
             }
           });
-
           peer.on('iceStateChange', (state) => {
             console.log('[WebRTC] ICE state change:', state);
           });
-
           peer.on('iceCandidate', (candidate) => {
             console.log('[WebRTC] ICE candidate:', candidate);
           });
-
           peer.on('close', () => {
-            console.log('[WebRTC] Peer cerrado');
-            console.log('[WebRTC] Peer connected al cerrar:', peer.connected);
-            console.log('[WebRTC] Peer destroyed al cerrar:', peer.destroyed);
-            console.log('[WebRTC] Streams al cerrar:', peer.streams.length);
-            
+            const nowClose = new Date().toISOString();
+            console.info(`[WebRTC][${nowClose}] peer.on('close'): Peer cerrado.`);
             clearTimeout(signalingTimeout);
             if (markIntentionalDisconnectRef.current) {
               markIntentionalDisconnectRef.current();
@@ -529,13 +513,14 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             setConnectionQuality("good");
             if (partnerVideo.current) {
               partnerVideo.current.srcObject = null;
+              console.info(`[WebRTC][${nowClose}] Limpiando srcObject del video del compañero tras cierre.`);
             }
             setRemoteStream(null);
             addCountry(["España", "México", "Argentina", "Colombia", "Chile", "Estados Unidos"][Math.floor(Math.random() * 6)]);
           });
-
           peer.on('error', (err) => {
-            console.error('[WebRTC] Error en Peer:', err);
+            const nowError = new Date().toISOString();
+            console.error(`[WebRTC][${nowError}] peer.on('error'): Error en Peer:`, err);
             clearTimeout(signalingTimeout);
             if (err.message && (
               err.message.includes('ICE') || 
@@ -544,13 +529,12 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             )) {
               handlePeerError(err);
             } else {
-              console.warn('[WebRTC] Error menor en peer:', err.message);
               setConnectionQuality("good");
             }
           });
-
           peer.on('data', (data) => {
-            console.log('[WebRTC] Data recibida:', data);
+            const nowData = new Date().toISOString();
+            console.info(`[WebRTC][${nowData}] peer.on('data'): Data recibida:`, data);
             if (!isComponentMounted) return;
             try {
               const parsed: DataType = JSON.parse(data.toString());
@@ -573,14 +557,15 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
                 setIsPartnerVideoOff(parsed.value);
               }
             } catch (e) {
-              console.error("Dato recibido no es JSON válido:", e);
+              console.error(`[WebRTC][${nowData}] peer.on('data'): Dato recibido no es JSON válido:`, e);
             }
           });
         };
 
         socket?.on("partner", (data: { id: string; initiator: boolean; profile?: unknown }) => { 
           if (isComponentMounted) {
-            console.log('[WebRTC] Evento partner recibido. ID del compañero:', data.id, 'initiator:', data.initiator);
+            const now = new Date().toISOString();
+            console.log(`[WebRTC][${now}] Evento 'partner' recibido. ID del compañero: ${data.id}, initiator: ${data.initiator}`);
             setupPeer(data.id, data.initiator);
             if (data.profile) {
               setPartnerProfile(data.profile);
@@ -589,20 +574,19 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         });
         
         socket?.on("signal", (data: { from: string; signal: Peer.SignalData; }) => { 
-          console.log('[WebRTC] Señal recibida del socket:', data);
-          console.log('[WebRTC] Tipo de señal recibida:', data.signal.type);
-          console.log('[WebRTC] Peer existe:', !!peerRef.current);
-          console.log('[WebRTC] Peer connected:', peerRef.current?.connected);
-          console.log('[WebRTC] Peer destroyed:', peerRef.current?.destroyed);
-          
+          const now = new Date().toISOString();
+          console.info(`[WebRTC][${now}] socket.on('signal'): Señal recibida del socket. De: ${data.from}, Tipo de señal: ${data.signal.type}`);
+          console.info(`[WebRTC][${now}] Estado del peer: existe=${!!peerRef.current}, conectado=${peerRef.current?.connected}, destruido=${peerRef.current?.destroyed}`);
           if (peerRef.current && isComponentMounted) {
-            console.log('[WebRTC] Procesando señal en peer');
-            peerRef.current.signal(data.signal); 
-            console.log('[WebRTC] Señal procesada en peer');
+            try {
+              peerRef.current.signal(data.signal); 
+              console.info(`[WebRTC][${now}] Señal procesada en peer.`);
+            } catch (e) {
+              console.error(`[WebRTC][${now}] Error procesando señal en peer:`, e);
+            }
           } else {
-            console.log('[WebRTC] Peer no disponible, guardando señal en buffer');
             signalBufferRef.current.push(data.signal);
-            console.log('[WebRTC] Señales en buffer:', signalBufferRef.current.length);
+            console.warn(`[WebRTC][${now}] Peer no disponible, guardando señal en buffer. Señales en buffer: ${signalBufferRef.current.length}`);
           }
         });
 
@@ -631,24 +615,26 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
       })
       .catch(error => {
         console.error('[Camera] Error al obtener stream:', error);
-        
+        let errorMsg = '';
         if (error instanceof Error) {
           if (error.name === 'NotAllowedError') {
-            setStatus("Error: Permisos denegados. Por favor, permite acceso a cámara y micrófono en la configuración del navegador.");
+            errorMsg = 'Permisos denegados. Por favor, permite acceso a cámara y micrófono en la configuración del navegador.';
           } else if (error.name === 'NotFoundError') {
-            setStatus("Error: No se encontró cámara o micrófono. Verifica que los dispositivos estén conectados.");
+            errorMsg = 'No se encontró cámara o micrófono. Verifica que los dispositivos estén conectados.';
           } else if (error.name === 'NotReadableError') {
-            setStatus("Error: La cámara o micrófono están siendo usados por otra aplicación.");
+            errorMsg = 'La cámara o micrófono están siendo usados por otra aplicación.';
           } else if (error.name === 'OverconstrainedError') {
-            setStatus("Error: La cámara no cumple con los requisitos mínimos.");
+            errorMsg = 'La cámara no cumple con los requisitos mínimos.';
           } else {
-            setStatus(`Error al acceder a la cámara: ${error.message}`);
+            errorMsg = `Error al acceder a la cámara: ${error.message}`;
           }
         } else {
-          setStatus("Error desconocido al solicitar permisos de cámara");
+          errorMsg = 'Error desconocido al solicitar permisos de cámara';
         }
-        
-        setConnectionStatus("error");
+        setStatus(`Error: ${errorMsg}`);
+        setConnectionStatus('error');
+        // Mostrar alerta visual en la interfaz
+        alert(`Error de cámara/micrófono: ${errorMsg}`);
       });
 
     return () => {
@@ -671,6 +657,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   useEffect(() => {
     if (!useEnhancedWebRTC && remoteStream && partnerVideo.current) {
       partnerVideo.current.srcObject = remoteStream;
+      console.info('[WebRTC][Effect] Reasignando remoteStream al video del compañero tras cambio de estado.');
     }
   }, [useEnhancedWebRTC, remoteStream]);
 
