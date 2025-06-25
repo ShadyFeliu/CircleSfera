@@ -571,13 +571,21 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
         };
 
         socket?.on("partner", (data: { id: string; initiator: boolean; profile?: unknown }) => { 
+          console.log('[WebRTC] Evento partner recibido:', data);
+          console.log('[WebRTC] Partner ID:', data.id);
+          console.log('[WebRTC] Initiator:', data.initiator);
+          console.log('[WebRTC] Componente montado:', isComponentMounted);
+          
           if (isComponentMounted) {
+            console.log('[WebRTC] Configurando peer para partner:', data.id);
             setupPeer(data.id, data.initiator);
             if (data.profile) {
               setPartnerProfile(data.profile);
             } else {
               setPartnerProfile(null);
             }
+          } else {
+            console.error('[WebRTC] Componente no montado, ignorando evento partner');
           }
         });
         
