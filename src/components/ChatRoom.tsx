@@ -70,22 +70,27 @@ type UserPreferences = {
 // WebRTC configuration
 const ICE_SERVERS = {
   iceServers: [
+    { urls: [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+      'stun:stun3.l.google.com:19302',
+      'stun:stun4.l.google.com:19302',
+      'stun:global.stun.twilio.com:3478'
+    ] },
+    // TURN públicos
     {
       urls: [
-        'stun:stun.l.google.com:19302',
-        'stun:stun1.l.google.com:19302',
-      ],
-    },
-    // Servidores TURN públicos activados para compatibilidad móvil
-    {
-      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
         'turn:relay.metered.ca:80',
         'turn:relay.metered.ca:443',
-        'turns:relay.metered.ca:443?transport=tcp',
+        'turns:relay.metered.ca:443?transport=tcp'
       ],
       username: 'openrelayproject',
       credential: 'openrelayproject',
     },
+    // Puedes añadir más TURN aquí si tienes credenciales propias
   ],
   iceCandidatePoolSize: 10,
 };
@@ -126,7 +131,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [connectionError, setConnectionError] = useState<ConnectionError | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const MAX_RECONNECT_ATTEMPTS = 3;
+  const MAX_RECONNECT_ATTEMPTS = 2;
 
   // Estadísticas de usuario
   const {
@@ -257,6 +262,7 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   }, [interests, ageFilter, deviceId]);
 
   const handleNextChat = useCallback(() => {
+    setReconnectAttempts(0);
     setMessages([]);
     setStatus("Buscando un compañero...");
     setConnectionStatus("waiting");
@@ -426,6 +432,17 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           signalingTimeout = setTimeout(() => {
             console.log('[WebRTC] ⚠️ Signaling timeout (45s). Destruyendo peer.');
             peer.destroy();
+            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+              setTimeout(() => {
+                setReconnectAttempts(prev => prev + 1);
+                console.log('[WebRTC] Reintentando conexión, intento', reconnectAttempts + 1);
+                // Llama a handleNextChat o startNewChat según tu lógica
+                handleNextChat();
+              }, 1500);
+            } else {
+              setStatus('No se pudo establecer la conexión. Intenta de nuevo más tarde.');
+              setReconnectAttempts(0);
+            }
           }, 45000);
 
           peer.on('connect', () => {
