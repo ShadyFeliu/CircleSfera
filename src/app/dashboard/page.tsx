@@ -40,27 +40,27 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
-        <div className="text-white text-xl">Cargando...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e215d] via-[#6a3093] to-[#a044ff]">
+        <div className="text-white text-xl font-semibold animate-pulse">Cargando...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#1e215d] via-[#6a3093] to-[#a044ff] flex flex-col">
       {/* Header */}
-      <header className="w-full flex items-center justify-between px-4 py-3 md:px-8 md:py-4 bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 shadow-lg z-40">
+      <header className="w-full flex items-center justify-between px-4 py-3 md:px-8 md:py-4 bg-gradient-to-r from-[#1e215d] via-[#6a3093] to-[#a044ff] shadow-lg z-40">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+          <Link href="/" className="text-2xl md:text-3xl font-bold text-white tracking-tight drop-shadow-lg">
             CircleSfera
           </Link>
-          <span className="text-gray-300 text-sm hidden sm:block">| Dashboard</span>
+          <span className="text-white/60 text-sm hidden sm:block">| Dashboard</span>
         </div>
         
         <div className="flex items-center gap-4">
           <Link
             href={`/@${user?.username}`}
-            className="flex items-center gap-2 bg-white bg-opacity-10 hover:bg-opacity-20 text-white font-semibold px-4 py-2 rounded-full transition-all text-sm border border-white border-opacity-20"
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold px-4 py-2 rounded-full transition-all text-sm border border-white/20 shadow"
           >
             <span className="text-lg">👤</span>
             <span className="hidden sm:inline">Mi Perfil</span>
@@ -68,7 +68,7 @@ export default function DashboardPage() {
           
           <button
             onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-full transition-all text-sm"
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-full shadow transition-all text-sm"
           >
             Cerrar Sesión
           </button>
@@ -76,8 +76,10 @@ export default function DashboardPage() {
       </header>
 
       {/* Contenido principal */}
-      <main className="pt-20">
-        <UserDashboard />
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="w-full max-w-5xl mx-auto bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 sm:p-10 border border-white/20 mt-8 mb-8">
+          <UserDashboard />
+        </div>
       </main>
     </div>
   );
