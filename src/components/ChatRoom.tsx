@@ -416,6 +416,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
           let connectionTimeout: NodeJS.Timeout | undefined;
           let signalingTimeout: NodeJS.Timeout | undefined;
           
+          console.log('[WebRTC] Configurando peer para partner:', partnerID);
+          console.log('[WebRTC] Stream disponible:', !!stream);
+          console.log('[WebRTC] Stream tracks:', stream?.getTracks().map(t => t.kind));
+          
           const peer = new Peer({
             initiator,
             trickle: true,
@@ -426,6 +430,10 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               maxRetransmits: 3
             }
           });
+
+          console.log('[WebRTC] Peer creado, verificando estado inicial...');
+          console.log('[WebRTC] Peer destroyed:', peer.destroyed);
+          console.log('[WebRTC] Peer connected:', peer.connected);
           
           // Guardar el peer en el ref para que esté disponible en todo el componente
           peerRef.current = peer;
@@ -488,6 +496,8 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
               console.log('[WebRTC] Señal enviada al socket para:', partnerID);
             }
           });
+
+          console.log('[WebRTC] Evento signal registrado en peer');
 
           peer.on('stream', (partnerStream) => {
             console.log('[WebRTC] Stream de compañero recibido:', partnerStream);
