@@ -229,16 +229,24 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
   const deviceId = getOrCreateDeviceId();
 
   const startNewChat = useCallback(() => {
+    console.log('🚀 startNewChat ejecutándose...');
+    console.log('🔍 Socket connected:', socketRef.current?.connected);
+    console.log('🔍 Socket ID:', socketRef.current?.id);
+    
     if (socketRef.current?.connected) {
+      console.log('✅ Socket conectado, enviando find_partner...');
       console.log('Buscando nuevo compañero con intereses:', interests);
       console.log('DeviceId que se enviará:', deviceId);
       const interestsArray = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
+      console.log('🔍 Intereses procesados:', interestsArray);
       socketRef.current.emit('find_partner', { interests: interestsArray, ageFilter, deviceId });
+      console.log('✅ Evento find_partner enviado');
       setConnectionStatus("waiting");
       setStatus("Buscando un compañero...");
     } else {
-      console.error("No se puede iniciar un nuevo chat, el socket no está conectado.");
-      // Opcionalmente, intentar reconectar o mostrar un error al usuario.
+      console.error("❌ No se puede iniciar un nuevo chat, el socket no está conectado.");
+      console.error("🔍 Socket status:", socketRef.current?.connected);
+      console.error("🔍 Socket ID:", socketRef.current?.id);
     }
   }, [interests, ageFilter, deviceId]);
 
@@ -290,7 +298,9 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     }
 
     const onConnect = () => {
-      console.log('Conectado al servidor! Buscando pareja con intereses:', interests);
+      console.log('✅ Conectado al servidor! Buscando pareja con intereses:', interests);
+      console.log('🔍 Socket status:', socketRef.current?.connected);
+      console.log('🔍 Socket ID:', socketRef.current?.id);
       startNewChat();
       // Solicitar contador inicial
       socketRef.current?.emit('get_user_count');
