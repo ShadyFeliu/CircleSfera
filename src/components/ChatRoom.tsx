@@ -94,11 +94,19 @@ const ICE_SERVERS = {
 const CONNECTION_TIMEOUT = 30000; // 30 segundos
 const SIGNALING_TIMEOUT = 20000; // 20 segundos
 
-// Utilidad para obtener o generar un UUID persistente por dispositivo
+// Utilidad profesional para obtener o generar un UUID v4 persistente por dispositivo (compatible universalmente)
+function generateUUIDv4() {
+  // https://stackoverflow.com/a/2117523/2715716
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 function getOrCreateDeviceId() {
   let deviceId = localStorage.getItem('circlesfera_device_id');
   if (!deviceId) {
-    deviceId = crypto.randomUUID();
+    deviceId = generateUUIDv4();
     localStorage.setItem('circlesfera_device_id', deviceId);
   }
   return deviceId;
