@@ -1014,20 +1014,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
     };
   }, [peerRef.current]);
 
-  // Feedback visual del estado de conexión Socket.IO
-  const renderSocketStatus = () => {
-    let color = "text-gray-400";
-    let text = "Desconectado";
-    if (socketStatus === "connected") { color = "text-green-500"; text = "Conectado"; }
-    else if (socketStatus === "reconnecting") { color = "text-yellow-500"; text = `Reconectando (${retries})...`; }
-    else if (socketStatus === "failed") { color = "text-red-500"; text = "Fallo de conexión"; }
-    return (
-      <div className={`fixed top-2 right-2 z-50 px-3 py-1 rounded shadow bg-white/80 dark:bg-gray-900/80 ${color} text-sm font-semibold transition-all`}>
-        <span className="mr-2">●</span>{text}
-      </div>
-    );
-  };
-
   // Feedback visual de calidad y métricas WebRTC
   const renderWebRTCQuality = () => {
     let color = 'bg-gray-500';
@@ -1492,8 +1478,6 @@ const ChatRoom = ({ interests, ageFilter }: { interests: string; ageFilter?: str
             </div>
           </div>
         )}
-
-        {renderSocketStatus()}
 
         {/* Feedback WebRTC calidad y métricas */}
         {webRTCStatus !== 'idle' && webRTCStatus !== 'disconnected' && (
